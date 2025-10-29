@@ -1,0 +1,15 @@
+/node_modules/
+/dist/
+/coverage/
+
+# Test files
+*.log
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
