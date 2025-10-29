@@ -95,7 +95,7 @@ export function useAuth<U>(store: AuthStore<U>) {
     callback?: () => void
   ) => {
     try {
-      const res = await config.axios.post(config.tokenUrl || config.loginUrl, credentials);
+      const res = await config.axios.post(config.tokenUrl, credentials);
       const tokens = config.extractTokens(res.data);
       setTokens(tokens);
       setAxiosAuth(tokens.accessToken, tokens.tokenType);
