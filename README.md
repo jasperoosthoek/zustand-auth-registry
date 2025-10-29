@@ -181,29 +181,6 @@ const authStore = getAuthStore('main', {
 });
 ```
 
-### Multi-Environment Setup
-
-```typescript
-// Different auth strategies for different environments
-const authStore = getAuthStore('main', {
-  axios: api,
-  
-  // Production: OAuth 2.0
-  ...(process.env.NODE_ENV === 'production' && {
-    tokenUrl: '/oauth/token',
-    userInfoUrl: '/oauth/userinfo',
-    autoRefresh: true
-  }),
-  
-  // Development: Simple tokens
-  ...(process.env.NODE_ENV === 'development' && {
-    loginUrl: '/api/auth/login',
-    getUserUrl: '/api/users/me',
-    extractToken: (data) => data.token
-  })
-});
-```
-
 ## Integration with zustand-crud-registry
 
 Works seamlessly with [@jasperoosthoek/zustand-crud-registry](https://github.com/jasperoosthoek/zustand-crud-registry):
@@ -280,11 +257,6 @@ type AuthConfig<U> = {
   
   // OAuth 2.0 token extraction (automatic if not specified)
   extractTokens?: (data: any) => TokenData;
-  extractAccessToken?: (data: any) => string;
-  extractRefreshToken?: (data: any) => string | undefined;
-  extractExpiresIn?: (data: any) => number | undefined;
-  extractTokenType?: (data: any) => string;
-  extractScope?: (data: any) => string[] | undefined;
   
   // Legacy token extraction (backward compatibility)
   extractToken?: (data: any) => string;
@@ -420,16 +392,7 @@ npm run test:coverage
 
 ## OAuth 2.0 Compliance
 
-This library implements OAuth 2.0 (RFC 6749) standards:
-
-- **Bearer Token Authentication** (RFC 6750)
-- **Token Refresh Flows** with automatic renewal
-- **Proper Token Lifecycle** management
-- **Standard Field Names** (`access_token`, `refresh_token`, `expires_in`)
-- **Configurable Scopes** and token types
-- **Backward Compatibility** with legacy authentication patterns
-
-For detailed OAuth 2.0 implementation information, see [.OAUTH.md](./.OAUTH.md).
+This library implements OAuth 2.0 (RFC 6749) standards with Bearer Token Authentication (RFC 6750), token refresh flows, proper token lifecycle management, and standard field names. For detailed implementation information and future roadmap, see [docs/OAUTH_ROADMAP.md](./docs/OAUTH_ROADMAP.md).
 
 ## Related Projects
 
