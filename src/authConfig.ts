@@ -52,7 +52,7 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
 
   const defaultPersistence = {
     enabled: true,
-    storage: typeof window !== 'undefined' ? localStorage : ({} as Storage),
+    storage: typeof window !== 'undefined' && window.localStorage ? window.localStorage : ({} as Storage),
     tokenKey: 'token',
     userKey: 'user',
   };
