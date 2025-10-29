@@ -69,7 +69,7 @@ describe('createAuthStore', () => {
 
       expect(state.token).toBe('stored-token');
       expect(state.user).toBeNull();
-      expect(state.isAuthenticated).toBe(false);
+      expect(state.isAuthenticated).toBe(true); // Token exists, so authenticated
     });
 
     it('should work with custom storage keys', () => {
@@ -380,7 +380,7 @@ describe('createAuthStore', () => {
       setToken('token');
       setUser(null as any);
 
-      expect(store.getState().isAuthenticated).toBe(false);
+      expect(store.getState().isAuthenticated).toBe(true); // Still authenticated because token exists
     });
   });
 });

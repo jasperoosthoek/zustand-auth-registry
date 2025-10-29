@@ -27,27 +27,27 @@ describe('validateAuthConfig', () => {
           logoutUrl: '/logout',
           extractToken: (data) => data.token
         } as any);
-      }).toThrow('AuthConfig: loginUrl is required');
+      }).toThrow('AuthConfig: tokenUrl or loginUrl is required');
     });
 
-    it('should validate that logoutUrl is required', () => {
+    it('should accept missing logoutUrl (OAuth compatible)', () => {
       expect(() => {
         validateAuthConfig({
           axios: mockAxios,
           loginUrl: '/login',
           extractToken: (data) => data.token
         } as any);
-      }).toThrow('AuthConfig: logoutUrl is required');
+      }).not.toThrow();
     });
 
-    it('should validate that extractToken is required', () => {
+    it('should accept missing extractToken (OAuth compatible)', () => {
       expect(() => {
         validateAuthConfig({
           axios: mockAxios,
           loginUrl: '/login',
           logoutUrl: '/logout'
         } as any);
-      }).toThrow('AuthConfig: extractToken function is required');
+      }).not.toThrow();
     });
 
     it('should pass validation with all required fields', () => {
@@ -77,7 +77,9 @@ describe('validateAuthConfig', () => {
         enabled: true,
         storage: expect.any(Object),
         tokenKey: 'token',
-        userKey: 'user'
+        refreshTokenKey: 'refresh_token',
+        userKey: 'user',
+        expiryKey: 'expires_at'
       });
     });
 
@@ -131,7 +133,9 @@ describe('validateAuthConfig', () => {
         enabled: false,
         storage: customStorage,
         tokenKey: 'custom_token',
-        userKey: 'custom_user'
+        refreshTokenKey: 'refresh_token', // OAuth defaults are still applied
+        userKey: 'custom_user',
+        expiryKey: 'expires_at' // OAuth defaults are still applied
       });
     });
   });
