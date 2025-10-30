@@ -106,8 +106,8 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
     throw new Error('AuthConfig: tokenUrl or loginUrl is required');
   }
 
-  // Determine logout endpoint for backward compatibility
-  const revokeUrl = config.revokeUrl || config.logoutUrl;
+  // Keep revokeUrl and logoutUrl distinct for proper OAuth/legacy behavior
+  const revokeUrl = config.revokeUrl;
 
   // Determine user info endpoint
   const userInfoUrl = config.userInfoUrl || config.getUserUrl;

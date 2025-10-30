@@ -383,4 +383,226 @@ describe('createAuthStore', () => {
       expect(store.getState().isAuthenticated).toBe(true); // Still authenticated because token exists
     });
   });
+
+  describe('OAuth storage operations', () => {
+    it('should handle optional refresh token removal', () => {
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        tokenUrl: '/oauth/token',
+        persistence: {
+          enabled: true,
+          storage: window.localStorage
+        }
+      });
+
+      const store = createAuthStore(config);
+
+      // Clear previous test state
+      (window.localStorage.setItem as jest.Mock).mockClear();
+      (window.localStorage.removeItem as jest.Mock).mockClear();
+
+      // Set tokens with refresh token
+      store.getState().setTokens({
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        tokenType: 'Bearer'
+      });
+
+      expect(window.localStorage.setItem).toHaveBeenCalledWith('refresh_token', 'refresh-token');
+
+      // Update tokens without refresh token
+      store.getState().setTokens({
+        accessToken: 'new-access-token',
+        tokenType: 'Bearer'
+      });
+
+      expect(window.localStorage.removeItem).toHaveBeenCalledWith('refresh_token');
+    });
+
+    it('should handle optional expiry removal', () => {
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        tokenUrl: '/oauth/token',
+        persistence: {
+          enabled: true,
+          storage: window.localStorage
+        }
+      });
+
+      const store = createAuthStore(config);
+
+      // First, set tokens with both refresh token and expiry
+      const expiresAt = Date.now() + 3600000;
+      store.getState().setTokens({
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        tokenType: 'Bearer',
+        expiresAt
+      });
+
+      // Clear mocks after initial setup
+      (window.localStorage.setItem as jest.Mock).mockClear();
+      (window.localStorage.removeItem as jest.Mock).mockClear();
+
+      // Now update tokens with refresh token but without expiry
+      store.getState().setTokens({
+        accessToken: 'new-access-token',
+        refreshToken: 'refresh-token', // Keep refresh token
+        tokenType: 'Bearer'
+        // No expiresAt - this should trigger removal
+      });
+
+      // Verify that expires_at was removed when not provided
+      expect(window.localStorage.removeItem).toHaveBeenCalledWith('expires_at');
+      expect(window.localStorage.setItem).toHaveBeenCalledWith('token', 'new-access-token');
+      expect(window.localStorage.setItem).toHaveBeenCalledWith('refresh_token', 'refresh-token');
+    });
+
+    it('should handle storage errors during refresh token operations', () => {
+      const onError = jest.fn();
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        tokenUrl: '/oauth/token',
+        onError,
+        persistence: {
+          enabled: true,
+          storage: window.localStorage
+        }
+      });
+
+      const store = createAuthStore(config);
+      const error = new Error('Storage quota exceeded');
+
+      // Mock storage error for removeItem
+      (window.localStorage.removeItem as jest.Mock).mockImplementation(() => {
+        throw error;
+      });
+
+      // Set tokens without refresh token (should trigger removeItem)
+      store.getState().setTokens({
+        accessToken: 'access-token',
+        tokenType: 'Bearer'
+      });
+
+      expect(onError).toHaveBeenCalledWith(error);
+    });
+
+    it('should handle storage errors during expiry operations', () => {
+      const onError = jest.fn();
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        tokenUrl: '/oauth/token',
+        onError,
+        persistence: {
+          enabled: true,
+          storage: window.localStorage
+        }
+      });
+
+      const store = createAuthStore(config);
+      const error = new Error('Storage quota exceeded');
+
+      // Mock storage error for removeItem
+      (window.localStorage.removeItem as jest.Mock).mockImplementation(() => {
+        throw error;
+      });
+
+      // Set tokens without expiry (should trigger removeItem)
+      store.getState().setTokens({
+        accessToken: 'access-token',
+        tokenType: 'Bearer'
+      });
+
+      expect(onError).toHaveBeenCalledWith(error);
+    });
+
+    it('should handle tokens without expiry information', () => {
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        tokenUrl: '/oauth/token'
+      });
+
+      const store = createAuthStore(config);
+
+      // Set tokens without expiry
+      store.getState().setTokens({
+        accessToken: 'access-token',
+        tokenType: 'Bearer'
+      });
+
+      const isExpired = store.getState().isTokenExpired();
+      expect(isExpired).toBe(false); // No expiry info means no expiration
+    });
+
+    it('should return false when no expiration timestamp available', () => {
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        tokenUrl: '/oauth/token'
+      });
+
+      const store = createAuthStore(config);
+
+      // No tokens set at all
+      const isExpired = store.getState().isTokenExpired();
+      expect(isExpired).toBe(false);
+    });
+
+    it('should handle tokens with expiry set to undefined', () => {
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        tokenUrl: '/oauth/token'
+      });
+
+      const store = createAuthStore(config);
+
+      store.getState().setTokens({
+        accessToken: 'access-token',
+        tokenType: 'Bearer',
+        expiresAt: undefined
+      });
+
+      const isExpired = store.getState().isTokenExpired();
+      expect(isExpired).toBe(false);
+    });
+
+    it('should correctly identify expired tokens', () => {
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        tokenUrl: '/oauth/token'
+      });
+
+      const store = createAuthStore(config);
+
+      // Set expired tokens
+      const expiredTime = Date.now() - 1000; // 1 second ago
+      store.getState().setTokens({
+        accessToken: 'expired-token',
+        tokenType: 'Bearer',
+        expiresAt: expiredTime
+      });
+
+      const isExpired = store.getState().isTokenExpired();
+      expect(isExpired).toBe(true);
+    });
+
+    it('should correctly identify valid tokens', () => {
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        tokenUrl: '/oauth/token'
+      });
+
+      const store = createAuthStore(config);
+
+      // Set future expiry
+      const futureTime = Date.now() + 3600000; // 1 hour from now
+      store.getState().setTokens({
+        accessToken: 'valid-token',
+        tokenType: 'Bearer',
+        expiresAt: futureTime
+      });
+
+      const isExpired = store.getState().isTokenExpired();
+      expect(isExpired).toBe(false);
+    });
+  });
 });
