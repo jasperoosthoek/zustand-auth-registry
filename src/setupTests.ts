@@ -32,10 +32,10 @@ jest.mock('axios', () => ({
     put: jest.fn(),
     patch: jest.fn(),
     delete: jest.fn(),
-    defaults: { 
-      headers: { 
-        common: {} 
-      } 
+    defaults: {
+      headers: {
+        common: {}
+      }
     },
     interceptors: {
       request: { use: jest.fn(), eject: jest.fn() },
@@ -44,3 +44,39 @@ jest.mock('axios', () => ({
   })),
   isAxiosError: jest.fn()
 }));
+
+// Polyfill TextEncoder/TextDecoder for PKCE tests
+if (typeof global.TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
+
+// Polyfill crypto.subtle for PKCE tests (Node.js 15+)
+const nodeCrypto = require('crypto');
+
+// Use webcrypto if available (Node 15+), otherwise use crypto directly
+const webcrypto = nodeCrypto.webcrypto || nodeCrypto;
+
+// Setup global.crypto for Node.js environment paths in PKCE
+if (!global.crypto || !global.crypto.subtle) {
+  Object.defineProperty(global, 'crypto', {
+    value: webcrypto,
+    writable: true,
+    configurable: true
+  });
+}
+
+// Setup window.crypto for browser/jsdom environment paths in PKCE
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'crypto', {
+    value: {
+      subtle: webcrypto.subtle,
+      getRandomValues: (array: Uint8Array) => {
+        return webcrypto.getRandomValues(array);
+      }
+    },
+    writable: true,
+    configurable: true
+  });
+}

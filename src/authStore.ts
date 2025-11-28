@@ -22,18 +22,29 @@ export type AuthStore<U> = UseBoundStore<StoreApi<AuthState<U>>> & {
 };
 
 export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U> => {
-  const { persistence } = config;
-  
+  const { persistence, cookieAuth } = config;
+
   const getStoredTokens = (): TokenData | null => {
+    // Cookie mode: No client-side token access
+    if (cookieAuth?.enabled) {
+      // Token is in httpOnly cookie, we can't read it
+      // Just return placeholder to indicate "might be authenticated"
+      return {
+        accessToken: '__cookie_managed__',
+        tokenType: 'Cookie',
+      };
+    }
+
+    // Standard localStorage mode
     if (!persistence.enabled) return null;
     try {
       const accessToken = persistence.storage.getItem(persistence.tokenKey);
       if (!accessToken) return null;
-      
+
       const refreshToken = persistence.storage.getItem(persistence.refreshTokenKey);
       const expiryString = persistence.storage.getItem(persistence.expiryKey);
       const expiresAt = expiryString ? parseInt(expiryString, 10) : undefined;
-      
+
       return {
         accessToken,
         refreshToken: refreshToken || undefined,
@@ -68,19 +79,25 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
     setTokens: (tokens: TokenData) => {
       const user = get().user;
       const isAuthenticated = !!tokens.accessToken;
-      
+
       set({ tokens, isAuthenticated, token: tokens.accessToken });
-      
+
+      // Cookie mode: Server sets httpOnly cookie, skip localStorage
+      if (cookieAuth?.enabled) {
+        return;
+      }
+
+      // Standard localStorage mode
       if (persistence.enabled) {
         try {
           persistence.storage.setItem(persistence.tokenKey, tokens.accessToken);
-          
+
           if (tokens.refreshToken) {
             persistence.storage.setItem(persistence.refreshTokenKey, tokens.refreshToken);
           } else {
             persistence.storage.removeItem(persistence.refreshTokenKey);
           }
-          
+
           if (tokens.expiresAt) {
             persistence.storage.setItem(persistence.expiryKey, tokens.expiresAt.toString());
           } else {

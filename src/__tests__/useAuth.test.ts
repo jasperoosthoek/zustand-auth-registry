@@ -54,10 +54,14 @@ describe('useAuth', () => {
         await result.current.login({ email: 'test@example.com', password: 'password' });
       });
 
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/login', {
-        email: 'test@example.com',
-        password: 'password'
-      });
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        '/auth/login',
+        {
+          email: 'test@example.com',
+          password: 'password'
+        },
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
 
       const state = store.getState();
       expect(state.token).toBe('mock-jwt-token-12345');
@@ -128,6 +132,7 @@ describe('useAuth', () => {
     it('should call login callback when provided', async () => {
       const callback = jest.fn();
       mockAxiosInstance.post.mockResolvedValue(mockResponses.loginSuccess);
+      mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
@@ -157,10 +162,17 @@ describe('useAuth', () => {
       const { result } = renderHook(() => useAuth(store));
 
       await act(async () => {
-        await result.current.login({ email: 'wrong@example.com', password: 'wrong' });
+        try {
+          await result.current.login({ email: 'wrong@example.com', password: 'wrong' });
+        } catch (error) {
+          // Error is thrown
+        }
       });
 
-      expect(onError).toHaveBeenCalledWith(loginError);
+      // Expect AuthError wrapper
+      expect(onError).toHaveBeenCalled();
+      const errorArg = onError.mock.calls[0][0];
+      expect(errorArg.code).toBeDefined(); // AuthError has code property
       expect(store.getState().isAuthenticated).toBe(false);
       expect(extractAuthHeader(mockAxiosInstance)).toBeUndefined();
     });
@@ -185,7 +197,7 @@ describe('useAuth', () => {
         await result.current.logout();
       });
 
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/logout');
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/logout', {}, expect.objectContaining({ headers: expect.any(Object) }));
       
       const state = store.getState();
       expect(state.user).toBeNull();
@@ -234,7 +246,10 @@ describe('useAuth', () => {
         await result.current.logout();
       });
 
-      expect(onError).toHaveBeenCalledWith(logoutError);
+      // Expect AuthError wrapper instead of raw error
+      expect(onError).toHaveBeenCalled();
+      const errorArg = onError.mock.calls[0][0];
+      expect(errorArg.code).toBeDefined(); // AuthError has code property
       
       const state = store.getState();
       expect(state.user).toBeNull();
@@ -294,10 +309,17 @@ describe('useAuth', () => {
       const { result } = renderHook(() => useAuth(store));
 
       await act(async () => {
-        await result.current.getCurrentUser();
+        try {
+          await result.current.getCurrentUser();
+        } catch (error) {
+          // Error is thrown
+        }
       });
 
-      expect(onError).toHaveBeenCalledWith(userError);
+      // Expect AuthError wrapper
+      expect(onError).toHaveBeenCalled();
+      const errorArg = onError.mock.calls[0][0];
+      expect(errorArg.code).toBeDefined();
       expect(store.getState().isAuthenticated).toBe(false);
       expect(extractAuthHeader(mockAxiosInstance)).toBeUndefined();
     });
@@ -532,12 +554,12 @@ describe('useAuth', () => {
           await result.current.refreshTokens();
         });
 
-        expect(onTokenRefresh).toHaveBeenCalledWith({
-          accessToken: 'new-token',
-          refreshToken: 'new-refresh',
-          expiresAt: expect.any(Number),
-          tokenType: 'Bearer'
-        });
+        expect(onTokenRefresh).toHaveBeenCalled();
+        const callArg = onTokenRefresh.mock.calls[0][0];
+        expect(callArg.accessToken).toBe('new-token');
+        expect(callArg.refreshToken).toBe('new-refresh');
+        expect(callArg.tokenType).toBe('Bearer');
+        expect(typeof callArg.expiresAt).toBe('number');
       });
 
       it('should handle refresh failure and clear state', async () => {
@@ -598,7 +620,10 @@ describe('useAuth', () => {
           await result.current.refreshTokens();
         });
 
-        expect(onError).toHaveBeenCalledWith(refreshError);
+        // Expect AuthError wrapper
+        expect(onError).toHaveBeenCalled();
+        const errorArg = onError.mock.calls[0][0];
+        expect(errorArg.code).toBeDefined();
       });
     });
 
@@ -841,7 +866,7 @@ describe('useAuth', () => {
       it('should call onError callback for useEffect errors', async () => {
         const onError = jest.fn();
         const networkError = new Error('Network error');
-        
+
         mockAxios.isAxiosError.mockReturnValue(false);
         mockAxiosInstance.get.mockRejectedValue(networkError);
 
@@ -861,7 +886,10 @@ describe('useAuth', () => {
           renderHook(() => useAuth(store));
         });
 
-        expect(onError).toHaveBeenCalledWith(networkError);
+        // Expect AuthError wrapper
+        expect(onError).toHaveBeenCalled();
+        const errorArg = onError.mock.calls[0][0];
+        expect(errorArg.code).toBeDefined();
       });
     });
 
@@ -887,10 +915,14 @@ describe('useAuth', () => {
           await result.current.logout();
         });
 
-        expect(mockAxiosInstance.post).toHaveBeenCalledWith('/oauth/revoke', {
-          token: 'refresh-token',
-          token_type_hint: 'refresh_token'
-        });
+        expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+          '/oauth/revoke',
+          {
+            token: 'refresh-token',
+            token_type_hint: 'refresh_token'
+          },
+          expect.objectContaining({ headers: expect.any(Object) })
+        );
       });
 
       it('should send proper token_type_hint for revocation', async () => {
@@ -914,10 +946,12 @@ describe('useAuth', () => {
           await result.current.logout();
         });
 
-        expect(mockAxiosInstance.post).toHaveBeenCalledWith('/oauth/revoke', 
+        expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+          '/oauth/revoke',
           expect.objectContaining({
             token_type_hint: 'refresh_token'
-          })
+          }),
+          expect.objectContaining({ headers: expect.any(Object) })
         );
       });
 
@@ -942,7 +976,7 @@ describe('useAuth', () => {
           await result.current.logout();
         });
 
-        expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/logout');
+        expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/logout', {}, expect.objectContaining({ headers: expect.any(Object) }));
       });
 
       it('should fallback to simple logout when revokeUrl not configured', async () => {
@@ -968,7 +1002,538 @@ describe('useAuth', () => {
         });
 
         // Since config.revokeUrl is undefined, it should use simple logout
-        expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/logout');
+        expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/logout', {}, expect.objectContaining({ headers: expect.any(Object) }));
+      });
+    });
+
+    describe('Token Rotation', () => {
+      beforeEach(() => {
+        resetAllMocks();
+        mockAxiosInstance = createMockAxios();
+      });
+
+      describe('rotation limit enforcement', () => {
+        it('should enforce max rotation limit', async () => {
+          const onError = jest.fn();
+
+          const store = getAuthStore('main', {
+            ...testConfigs.basic,
+            axios: mockAxiosInstance,
+            tokenUrl: '/oauth/token',
+            tokenRotation: {
+              enabled: true,
+              rotateOnRefresh: true,
+              maxRotations: 3
+            },
+            onError
+          });
+
+          // Set tokens at rotation limit
+          store.getState().setTokens({
+            accessToken: 'token',
+            refreshToken: 'refresh',
+            tokenType: 'Bearer',
+            rotationCount: 3 // At limit
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          let refreshResult: boolean | undefined;
+          await act(async () => {
+            refreshResult = await result.current.refreshTokens();
+          });
+
+          expect(refreshResult).toBe(false);
+          expect(onError).toHaveBeenCalled();
+          const errorArg = onError.mock.calls[0][0];
+          expect(errorArg.code).toBe('REFRESH_FAILED');
+          expect(errorArg.message).toContain('rotation limit');
+
+          // State should be cleared
+          expect(store.getState().isAuthenticated).toBe(false);
+          expect(store.getState().tokens).toBeNull();
+        });
+
+        it('should allow refresh when below rotation limit', async () => {
+          const onTokenRotated = jest.fn();
+          mockAxiosInstance.post.mockResolvedValue({
+            data: {
+              access_token: 'new-token',
+              refresh_token: 'new-refresh',
+              token_type: 'Bearer'
+            }
+          });
+
+          const store = getAuthStore('main', {
+            ...testConfigs.withoutGetUser,
+            axios: mockAxiosInstance,
+            tokenUrl: '/oauth/token',
+            tokenRotation: {
+              enabled: true,
+              rotateOnRefresh: true,
+              maxRotations: 5
+            },
+            onTokenRotated
+          });
+
+          // Set tokens below limit
+          store.getState().setTokens({
+            accessToken: 'old-token',
+            refreshToken: 'old-refresh',
+            tokenType: 'Bearer',
+            rotationCount: 2 // Below limit of 5
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          let refreshResult: boolean | undefined;
+          await act(async () => {
+            refreshResult = await result.current.refreshTokens();
+          });
+
+          expect(refreshResult).toBe(true);
+          expect(store.getState().tokens?.rotationCount).toBe(3); // Incremented
+          expect(onTokenRotated).toHaveBeenCalledWith('old-token', expect.objectContaining({
+            accessToken: 'new-token',
+            rotationCount: 3
+          }));
+        });
+      });
+
+      describe('rotation disabled', () => {
+        it('should refresh tokens without rotation when disabled', async () => {
+          mockAxiosInstance.post.mockResolvedValue({
+            data: {
+              access_token: 'new-token',
+              refresh_token: 'new-refresh',
+              token_type: 'Bearer'
+            }
+          });
+
+          const store = getAuthStore('main', {
+            ...testConfigs.withoutGetUser,
+            axios: mockAxiosInstance,
+            tokenUrl: '/oauth/token',
+            tokenRotation: {
+              enabled: false, // Disabled
+              rotateOnRefresh: false,
+              maxRotations: 5
+            }
+          });
+
+          store.getState().setTokens({
+            accessToken: 'old-token',
+            refreshToken: 'old-refresh',
+            tokenType: 'Bearer'
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          let refreshResult: boolean | undefined;
+          await act(async () => {
+            refreshResult = await result.current.refreshTokens();
+          });
+
+          expect(refreshResult).toBe(true);
+          const state = store.getState();
+          expect(state.tokens?.accessToken).toBe('new-token');
+          expect(state.tokens?.refreshToken).toBe('new-refresh');
+          expect(state.tokens?.rotationCount).toBeUndefined(); // No rotation tracking
+        });
+      });
+    });
+
+    describe('Cookie Authentication', () => {
+      beforeEach(() => {
+        resetAllMocks();
+        mockAxiosInstance = createMockAxios();
+
+        // Mock document.cookie
+        Object.defineProperty(document, 'cookie', {
+          writable: true,
+          configurable: true,
+          value: 'csrftoken=abc123; sessionid=xyz789'
+        });
+      });
+
+      afterEach(() => {
+        // Clean up
+        Object.defineProperty(document, 'cookie', {
+          writable: true,
+          configurable: true,
+          value: ''
+        });
+      });
+
+      describe('checkAuth', () => {
+        it('should validate cookie auth successfully', async () => {
+          mockAxiosInstance.get.mockResolvedValue({
+            status: 200,
+            data: {
+              authenticated: true,
+              user: { id: 1, email: 'test@example.com', name: 'Test User' }
+            }
+          });
+
+          const store = getAuthStore('main', {
+            ...testConfigs.basic,
+            axios: mockAxiosInstance,
+            cookieAuth: {
+              enabled: true,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: false,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            },
+            authCheckUrl: '/auth/check'
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          let checkResult: boolean | undefined;
+          await act(async () => {
+            checkResult = await result.current.checkAuth();
+          });
+
+          expect(checkResult).toBe(true);
+          expect(store.getState().tokens?.accessToken).toBe('__cookie_managed__');
+          expect(store.getState().tokens?.tokenType).toBe('Cookie');
+          expect(store.getState().user).toEqual({ id: 1, email: 'test@example.com', name: 'Test User' });
+        });
+
+        it('should include CSRF token in headers when enabled', async () => {
+          mockAxiosInstance.get.mockResolvedValue({
+            status: 200,
+            data: { authenticated: true }
+          });
+
+          const store = getAuthStore('main', {
+            ...testConfigs.basic,
+            axios: mockAxiosInstance,
+            cookieAuth: {
+              enabled: true,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: true,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            },
+            authCheckUrl: '/auth/check'
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          await act(async () => {
+            await result.current.checkAuth();
+          });
+
+          expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+            '/auth/check',
+            expect.objectContaining({
+              headers: {
+                'X-CSRF-Token': 'abc123'
+              }
+            })
+          );
+        });
+
+        it('should return false when not authenticated', async () => {
+          mockAxiosInstance.get.mockResolvedValue({
+            status: 200,
+            data: { authenticated: false }
+          });
+
+          const { result } = renderHook(() => useAuth(getAuthStore('main', {
+            ...testConfigs.withoutGetUser,
+            axios: mockAxiosInstance,
+            cookieAuth: {
+              enabled: true,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: false,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            },
+            authCheckUrl: '/auth/check'
+          })));
+
+          let checkResult: boolean | undefined;
+          await act(async () => {
+            checkResult = await result.current.checkAuth();
+          });
+
+          expect(checkResult).toBe(false);
+        });
+
+        it('should handle checkAuth errors gracefully', async () => {
+          const onError = jest.fn();
+          mockAxiosInstance.get.mockRejectedValue(createAxiosError('Network error', 500));
+
+          const store = getAuthStore('main', {
+            ...testConfigs.basic,
+            axios: mockAxiosInstance,
+            cookieAuth: {
+              enabled: true,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: false,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            },
+            authCheckUrl: '/auth/check',
+            onError
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          let checkResult: boolean | undefined;
+          await act(async () => {
+            checkResult = await result.current.checkAuth();
+          });
+
+          expect(checkResult).toBe(false);
+          expect(onError).toHaveBeenCalled();
+        });
+
+        it('should fetch user info when not in check response', async () => {
+          mockAxiosInstance.get
+            .mockResolvedValueOnce({
+              status: 200,
+              data: { authenticated: true } // No user data
+            })
+            .mockResolvedValue({
+              data: mockUser // userInfoUrl response for all subsequent calls
+            });
+
+          const store = getAuthStore('main', {
+            ...testConfigs.withoutGetUser,
+            axios: mockAxiosInstance,
+            cookieAuth: {
+              enabled: true,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: false,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            },
+            authCheckUrl: '/auth/check',
+            userInfoUrl: '/oauth/userinfo'
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          await act(async () => {
+            await result.current.checkAuth();
+          });
+
+          // Verify authCheck was called and userInfo was fetched
+          expect(mockAxiosInstance.get).toHaveBeenCalledWith('/auth/check', expect.anything());
+          expect(mockAxiosInstance.get).toHaveBeenCalledWith('/oauth/userinfo');
+          expect(store.getState().user).toEqual(mockUser);
+        });
+
+        it('should return false when cookie auth is disabled', async () => {
+          const store = getAuthStore('main', {
+            ...testConfigs.withoutGetUser,
+            axios: mockAxiosInstance,
+            cookieAuth: {
+              enabled: false,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: false,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            },
+            authCheckUrl: '/auth/check'
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          let checkResult: boolean | undefined;
+          await act(async () => {
+            checkResult = await result.current.checkAuth();
+          });
+
+          expect(checkResult).toBe(false);
+          expect(mockAxiosInstance.get).not.toHaveBeenCalled();
+        });
+
+        it('should return false when authCheckUrl is not provided', async () => {
+          const store = getAuthStore('main', {
+            ...testConfigs.withoutGetUser,
+            axios: mockAxiosInstance,
+            cookieAuth: {
+              enabled: true,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: false,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            }
+            // No authCheckUrl
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          let checkResult: boolean | undefined;
+          await act(async () => {
+            checkResult = await result.current.checkAuth();
+          });
+
+          expect(checkResult).toBe(false);
+          expect(mockAxiosInstance.get).not.toHaveBeenCalled();
+        });
+      });
+
+      describe('cookie mode login', () => {
+        it('should login with cookie mode', async () => {
+          mockAxiosInstance.post.mockResolvedValue({
+            data: { success: true }
+          });
+          mockAxiosInstance.get.mockResolvedValue({
+            data: mockUser
+          });
+
+          const store = getAuthStore('main', {
+            ...testConfigs.basic,
+            axios: mockAxiosInstance,
+            tokenUrl: '/auth/login',
+            userInfoUrl: '/oauth/userinfo',
+            cookieAuth: {
+              enabled: true,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: true,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            }
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          await act(async () => {
+            await result.current.login({ username: 'test', password: 'pass' });
+          });
+
+          expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+            '/auth/login',
+            { username: 'test', password: 'pass' },
+            expect.objectContaining({
+              headers: { 'X-CSRF-Token': 'abc123' }
+            })
+          );
+
+          expect(store.getState().tokens?.accessToken).toBe('__cookie_managed__');
+          expect(store.getState().tokens?.tokenType).toBe('Cookie');
+        });
+
+        it('should throw CSRF_TOKEN_MISSING when CSRF required but not found', async () => {
+          Object.defineProperty(document, 'cookie', {
+            writable: true,
+            configurable: true,
+            value: '' // No CSRF token
+          });
+
+          const onError = jest.fn();
+          const store = getAuthStore('main', {
+            ...testConfigs.basic,
+            axios: mockAxiosInstance,
+            tokenUrl: '/auth/login',
+            cookieAuth: {
+              enabled: true,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: true,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            },
+            onError
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          await act(async () => {
+            try {
+              await result.current.login({ username: 'test', password: 'pass' });
+            } catch (error) {
+              // Error expected
+            }
+          });
+
+          expect(onError).toHaveBeenCalled();
+          const errorArg = onError.mock.calls[0][0];
+          expect(errorArg.code).toBe('CSRF_TOKEN_MISSING');
+        });
+      });
+
+      describe('cookie mode logout', () => {
+        it('should include CSRF token in logout for cookie mode', async () => {
+          mockAxiosInstance.post.mockResolvedValue({ data: {} });
+
+          const store = getAuthStore('main', {
+            ...testConfigs.basic,
+            axios: mockAxiosInstance,
+            logoutUrl: '/auth/logout',
+            cookieAuth: {
+              enabled: true,
+              cookieName: 'sessionid',
+              secure: true,
+              sameSite: 'lax',
+              csrf: {
+                enabled: true,
+                headerName: 'X-CSRF-Token',
+                cookieName: 'csrftoken'
+              }
+            }
+          });
+
+          store.getState().setTokens({
+            accessToken: '__cookie_managed__',
+            tokenType: 'Cookie'
+          });
+
+          const { result } = renderHook(() => useAuth(store));
+
+          await act(async () => {
+            await result.current.logout();
+          });
+
+          expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+            '/auth/logout',
+            {},
+            expect.objectContaining({
+              headers: { 'X-CSRF-Token': 'abc123' }
+            })
+          );
+        });
       });
     });
   });

@@ -1,4 +1,5 @@
 import { AxiosInstance } from 'axios';
+import { AuthError } from './errors';
 
 // OAuth 2.0 token data structure
 export type TokenData = {
@@ -7,6 +8,8 @@ export type TokenData = {
   expiresAt?: number;
   tokenType: string;
   scope?: string[];
+  // Token rotation tracking
+  rotationCount?: number;
 };
 
 // Backward compatibility: extract single token vs OAuth token data
@@ -41,7 +44,33 @@ export type AuthConfig<U> = {
   // OAuth 2.0 features
   autoRefresh?: boolean;
   refreshThreshold?: number; // ms before expiry to refresh
-  
+
+  // Token rotation settings
+  tokenRotation?: {
+    enabled?: boolean;              // Default: true if refresh token present
+    rotateOnRefresh?: boolean;      // Rotate access token on refresh
+    rotateRefreshToken?: boolean;   // Rotate refresh token too (more secure)
+    maxRotations?: number;          // Limit rotation chain (prevents abuse)
+  };
+
+  // Cookie-based authentication (alternative to localStorage)
+  cookieAuth?: {
+    enabled?: boolean;
+    cookieName?: string;            // Default: 'auth_token'
+    secure?: boolean;               // Default: true (HTTPS only)
+    sameSite?: 'strict' | 'lax' | 'none'; // Default: 'lax'
+
+    // CSRF protection (required for cookie auth)
+    csrf?: {
+      enabled?: boolean;            // Default: true
+      headerName?: string;          // Default: 'X-CSRF-Token'
+      cookieName?: string;          // Default: 'csrftoken'
+    };
+  };
+
+  // Auth check endpoint (required for cookie auth)
+  authCheckUrl?: string;            // e.g., '/api/auth/check'
+
   persistence?: {
     enabled?: boolean;
     storage?: Storage;
@@ -50,11 +79,13 @@ export type AuthConfig<U> = {
     userKey?: string;
     expiryKey?: string;
   };
-  
-  onError?: (error: any) => void;
+
+  // Enhanced error callback (now receives AuthError)
+  onError?: (error: AuthError | any) => void;
   onLogin?: (user: U) => void;
   onLogout?: () => void;
   onTokenRefresh?: (tokens: TokenData) => void;
+  onTokenRotated?: (oldToken: string, newTokens: TokenData) => void;
 };
 
 export type ValidatedAuthConfig<U> = {
@@ -79,7 +110,30 @@ export type ValidatedAuthConfig<U> = {
   // OAuth features
   autoRefresh: boolean;
   refreshThreshold: number;
-  
+
+  // Token rotation
+  tokenRotation: {
+    enabled: boolean;
+    rotateOnRefresh: boolean;
+    rotateRefreshToken: boolean;
+    maxRotations?: number;
+  };
+
+  // Cookie auth
+  cookieAuth?: {
+    enabled: boolean;
+    cookieName: string;
+    secure: boolean;
+    sameSite: 'strict' | 'lax' | 'none';
+    csrf: {
+      enabled: boolean;
+      headerName: string;
+      cookieName: string;
+    };
+  };
+
+  authCheckUrl?: string;
+
   persistence: {
     enabled: boolean;
     storage: Storage;
@@ -88,11 +142,12 @@ export type ValidatedAuthConfig<U> = {
     userKey: string;
     expiryKey: string;
   };
-  
-  onError?: (error: any) => void;
+
+  onError?: (error: AuthError | any) => void;
   onLogin?: (user: U) => void;
   onLogout?: () => void;
   onTokenRefresh?: (tokens: TokenData) => void;
+  onTokenRotated?: (oldToken: string, newTokens: TokenData) => void;
 };
 
 export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfig<U> => {
@@ -124,6 +179,27 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
     expiryKey: 'expires_at',
   };
 
+  // Token rotation defaults
+  const tokenRotation = {
+    enabled: config.tokenRotation?.enabled ?? true,
+    rotateOnRefresh: config.tokenRotation?.rotateOnRefresh ?? true,
+    rotateRefreshToken: config.tokenRotation?.rotateRefreshToken ?? false,
+    maxRotations: config.tokenRotation?.maxRotations,
+  };
+
+  // Cookie auth defaults (only set if enabled)
+  const cookieAuth = config.cookieAuth?.enabled ? {
+    enabled: true,
+    cookieName: config.cookieAuth.cookieName || 'auth_token',
+    secure: config.cookieAuth.secure ?? true,
+    sameSite: config.cookieAuth.sameSite || 'lax' as const,
+    csrf: {
+      enabled: config.cookieAuth.csrf?.enabled ?? true,
+      headerName: config.cookieAuth.csrf?.headerName || 'X-CSRF-Token',
+      cookieName: config.cookieAuth.csrf?.cookieName || 'csrftoken',
+    },
+  } : undefined;
+
   return {
     axios: config.axios,
     tokenUrl,
@@ -138,6 +214,9 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
     formatAuthHeader: config.formatAuthHeader || ((token: string, tokenType: string = 'Bearer') => `${tokenType} ${token}`),
     autoRefresh: config.autoRefresh ?? true,
     refreshThreshold: config.refreshThreshold ?? 300000, // 5 minutes
+    tokenRotation,
+    cookieAuth,
+    authCheckUrl: config.authCheckUrl,
     persistence: {
       ...defaultPersistence,
       ...config.persistence,
@@ -146,6 +225,7 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
     onLogin: config.onLogin,
     onLogout: config.onLogout,
     onTokenRefresh: config.onTokenRefresh,
+    onTokenRotated: config.onTokenRotated,
   };
 };
 
