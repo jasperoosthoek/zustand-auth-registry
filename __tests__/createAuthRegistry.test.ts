@@ -1,4 +1,4 @@
-import { createAuthRegistry } from '../createAuthRegistry';
+import { createAuthRegistry } from '../src/createAuthRegistry';
 import { TestUser, createMockAxios } from './testHelpers';
 import { testConfigs } from './testUtils';
 

@@ -1,4 +1,4 @@
-import { AuthError, AuthErrorCode, createAuthError } from '../errors';
+import { AuthError, AuthErrorCode, createAuthError } from '../src/errors';
 import { createAxiosError } from './testUtils';
 
 describe('AuthError', () => {

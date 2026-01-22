@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
-import { useAuth } from '../useAuth';
-import { createAuthRegistry } from '../createAuthRegistry';
+import { useAuth } from '../src/useAuth';
+import { createAuthRegistry } from '../src/createAuthRegistry';
 import { TestUser, createMockAxios, mockUser, resetAllMocks, extractAuthHeader } from './testHelpers';
 import { testConfigs, mockResponses, createAxiosError } from './testUtils';
 

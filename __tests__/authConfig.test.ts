@@ -1,4 +1,4 @@
-import { validateAuthConfig } from '../authConfig';
+import { validateAuthConfig } from '../src/authConfig';
 import { createMockAxios } from './testHelpers';
 import { testConfigs } from './testUtils';
 

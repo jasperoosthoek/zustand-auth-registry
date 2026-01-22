@@ -5,7 +5,7 @@ import {
   createPKCEParams,
   getPKCEVerifier,
   clearPKCEVerifier
-} from '../pkce';
+} from '../src/pkce';
 import { createMockStorage } from './testHelpers';
 
 describe('PKCE', () => {

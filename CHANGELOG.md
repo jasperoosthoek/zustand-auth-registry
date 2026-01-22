@@ -473,3 +473,6 @@ const prodAuthStore = getAuthStore('main', {
 ---
 
 **Questions or issues?** Please open an issue on GitHub.
+
+##### Upcoming
+- Move `/src/__tests__` to `/__tests__`

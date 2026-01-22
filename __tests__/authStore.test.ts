@@ -1,5 +1,5 @@
-import { createAuthStore } from '../authStore';
-import { validateAuthConfig } from '../authConfig';
+import { createAuthStore } from '../src/authStore';
+import { validateAuthConfig } from '../src/authConfig';
 import { TestUser, createMockAxios, createMockStorage, resetAllMocks } from './testHelpers';
 import { testConfigs, createStorageQuotaError } from './testUtils';
 

@@ -4,19 +4,17 @@ module.exports = {
     '^.+\\.(ts|tsx)$': 'babel-jest',
   },
   testMatch: [
-    '<rootDir>/src/**/__tests__/**/*.test.(ts|tsx|js)',
+    '<rootDir>/__tests__/**/*.test.(ts|tsx|js)',
     '<rootDir>/src/**/*.test.(ts|tsx|js)'
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
-    '!src/setupTests.ts',
-    '!src/index.ts',
-    '!src/__tests__/**/*'
+    '!src/index.ts'
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   verbose: true,
-  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts']
+  setupFilesAfterEnv: ['<rootDir>/__tests__/setupTests.ts']
 };
