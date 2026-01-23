@@ -1,8 +1,6 @@
 import { useEffect, useCallback } from 'react';
-import axios from 'axios';
 import { AuthStore } from './authStore';
 import { createAuthError, AuthErrorCode, AuthError } from './errors';
-import { TokenData } from './authConfig';
 
 export function useAuth<U>(store: AuthStore<U>) {
   const { setTokens, setUser, unsetUser, tokens, user, isTokenExpired } = store();
@@ -88,10 +86,12 @@ export function useAuth<U>(store: AuthStore<U>) {
           tokenType: 'Cookie',
         });
 
-        // Get user info if needed
-        if (response.data.user) {
-          setUser(response.data.user);
+        // Extract user from response if extractor provided
+        const user = config.extractUser?.(response.data);
+        if (user) {
+          setUser(user);
         } else if (config.userInfoUrl || config.getUserUrl) {
+          // Fall back to fetching user separately
           await getCurrentUser();
         }
 
@@ -207,19 +207,20 @@ export function useAuth<U>(store: AuthStore<U>) {
           tokenType: 'Cookie',
         });
         setAxiosAuth();
-
-        if (config.userInfoUrl || config.getUserUrl) {
-          await getCurrentUser();
-        }
       } else {
         // Standard mode: Extract and store tokens
         const tokens = config.extractTokens(res.data);
         setTokens(tokens);
         setAxiosAuth(tokens.accessToken, tokens.tokenType);
+      }
 
-        if (config.userInfoUrl || config.getUserUrl) {
-          await getCurrentUser();
-        }
+      // Extract user from login response if extractor provided
+      const extractedUser = config.extractUser?.(res.data);
+      if (extractedUser) {
+        setUser(extractedUser);
+      } else if (config.userInfoUrl || config.getUserUrl) {
+        // Fall back to fetching user separately
+        await getCurrentUser();
       }
 
       if (user) {

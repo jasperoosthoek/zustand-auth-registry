@@ -394,7 +394,8 @@ describe('useAuth', () => {
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
-        axios: mockAxiosInstance
+        axios: mockAxiosInstance,
+        persistence: { enabled: true }
       });
 
       renderHook(() => useAuth(store));
@@ -404,7 +405,7 @@ describe('useAuth', () => {
 
     it('should fetch current user when token exists but user is missing', async () => {
       mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
-      
+
       const mockStorage = window.localStorage as jest.Mocked<Storage>;
       mockStorage.getItem.mockImplementation((key: string) => {
         if (key === 'token') return 'existing-token';
@@ -413,7 +414,8 @@ describe('useAuth', () => {
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
-        axios: mockAxiosInstance
+        axios: mockAxiosInstance,
+        persistence: { enabled: true }
       });
 
       renderHook(() => useAuth(store));
@@ -1178,6 +1180,7 @@ describe('useAuth', () => {
           const store = getAuthStore('main', {
             ...testConfigs.basic,
             axios: mockAxiosInstance,
+            extractUser: 'user',
             cookieAuth: {
               enabled: true,
               cookieName: 'sessionid',

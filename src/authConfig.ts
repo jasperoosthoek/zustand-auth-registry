@@ -38,7 +38,11 @@ export type AuthConfig<U> = {
   
   // Backward compatibility: single token extraction
   extractToken?: (data: any) => string;
-  
+
+  // User extraction from responses (login, checkAuth)
+  // Can be a function or a string key (e.g., "user" extracts data.user)
+  extractUser?: ((data: any) => U | null) | string;
+
   formatAuthHeader?: (token: string, tokenType?: string) => string;
   
   // OAuth 2.0 features
@@ -104,7 +108,10 @@ export type ValidatedAuthConfig<U> = {
   // Token extraction functions
   extractTokens: (data: any) => TokenData;
   extractToken?: (data: any) => string;
-  
+
+  // User extraction function (normalized from string or function input)
+  extractUser?: (data: any) => U | null;
+
   formatAuthHeader: (token: string, tokenType?: string) => string;
   
   // OAuth features
@@ -170,8 +177,9 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
   // Create OAuth-compliant token extraction function
   const extractTokens = createTokenExtractor(config);
 
+  // Persistence defaults to disabled
   const defaultPersistence = {
-    enabled: true,
+    enabled: false,
     storage: typeof window !== 'undefined' && window.localStorage ? window.localStorage : ({} as Storage),
     tokenKey: 'token',
     refreshTokenKey: 'refresh_token',
@@ -211,6 +219,7 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
     getUserUrl: config.getUserUrl,
     extractTokens,
     extractToken: config.extractToken,
+    extractUser: normalizeExtractUser(config.extractUser),
     formatAuthHeader: config.formatAuthHeader || ((token: string, tokenType: string = 'Bearer') => `${tokenType} ${token}`),
     autoRefresh: config.autoRefresh ?? true,
     refreshThreshold: config.refreshThreshold ?? 300000, // 5 minutes
@@ -228,6 +237,16 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
     onTokenRotated: config.onTokenRotated,
   };
 };
+
+// Normalize extractUser: string becomes key accessor, function passed through
+function normalizeExtractUser<U>(
+  extractUser?: ((data: any) => U | null) | string
+): ((data: any) => U | null) | undefined {
+  if (typeof extractUser === 'string') {
+    return (data: any) => data[extractUser] ?? null;
+  }
+  return extractUser;
+}
 
 // Helper function to create OAuth-compliant token extractor with backward compatibility
 function createTokenExtractor<U>(config: AuthConfig<U>): (data: any) => TokenData {

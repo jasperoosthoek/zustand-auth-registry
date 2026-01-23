@@ -38,7 +38,8 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
+        extractToken: (data: any) => data.token,
+        persistence: { enabled: true }
       });
 
       const store = createAuthStore(config);
@@ -61,7 +62,8 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
+        extractToken: (data: any) => data.token,
+        persistence: { enabled: true }
       });
 
       const store = createAuthStore(config);
@@ -99,7 +101,8 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
+        extractToken: (data: any) => data.token,
+        persistence: { enabled: true }
       });
 
       const store = createAuthStore(config);
@@ -120,7 +123,8 @@ describe('createAuthStore', () => {
         loginUrl: '/login',
         logoutUrl: '/logout',
         extractToken: (data: any) => data.token,
-        onError
+        onError,
+        persistence: { enabled: true }
       });
 
       const mockStorage = window.localStorage as jest.Mocked<Storage>;
@@ -160,7 +164,8 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
+        extractToken: (data: any) => data.token,
+        persistence: { enabled: true }
       });
 
       const store = createAuthStore(config);
@@ -182,7 +187,8 @@ describe('createAuthStore', () => {
         loginUrl: '/login',
         logoutUrl: '/logout',
         extractToken: (data: any) => data.token,
-        onError
+        onError,
+        persistence: { enabled: true }
       });
 
       const mockStorage = window.localStorage as jest.Mocked<Storage>;
@@ -207,7 +213,8 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
+        extractToken: (data: any) => data.token,
+        persistence: { enabled: true }
       });
 
       const store = createAuthStore(config);
@@ -235,7 +242,8 @@ describe('createAuthStore', () => {
         loginUrl: '/login',
         logoutUrl: '/logout',
         extractToken: (data: any) => data.token,
-        onError
+        onError,
+        persistence: { enabled: true }
       });
 
       const mockStorage = window.localStorage as jest.Mocked<Storage>;
@@ -269,6 +277,7 @@ describe('createAuthStore', () => {
         logoutUrl: '/logout',
         extractToken: (data: any) => data.token,
         persistence: {
+          enabled: true,
           storage: window.sessionStorage
         }
       });
@@ -292,6 +301,7 @@ describe('createAuthStore', () => {
         logoutUrl: '/logout',
         extractToken: (data: any) => data.token,
         persistence: {
+          enabled: true,
           storage: customStorage as Storage
         }
       });

@@ -105,7 +105,7 @@ describe('createAuthRegistry', () => {
 
       expect(store.config).toBeDefined();
       expect(store.config.loginUrl).toBe(config.loginUrl);
-      expect(store.config.persistence.enabled).toBe(true);
+      expect(store.config.persistence.enabled).toBe(false); // Persistence disabled by default
     });
   });
 
@@ -152,7 +152,9 @@ describe('createAuthRegistry', () => {
 
       const store = getAuthStore('main', config);
 
-      expect(store.config.persistence.enabled).toBe(true);
+      // Persistence is disabled by default
+      expect(store.config.persistence.enabled).toBe(false);
+      // But default keys are still set for when persistence is enabled
       expect(store.config.persistence.tokenKey).toBe('token');
       expect(store.config.persistence.userKey).toBe('user');
     });

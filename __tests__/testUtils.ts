@@ -81,6 +81,12 @@ export const mockResponses = {
 // Test auth configurations for different scenarios
 export const testConfigs = {
   basic: createTestAuthConfig(),
+  withPersistence: createTestAuthConfig({
+    persistence: {
+      enabled: true,
+      storage: window.localStorage
+    }
+  }),
   withTokenFormat: createTestAuthConfig({
     formatAuthHeader: (token: string) => `Token ${token}`
   }),

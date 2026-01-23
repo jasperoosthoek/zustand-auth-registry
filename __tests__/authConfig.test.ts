@@ -73,8 +73,9 @@ describe('validateAuthConfig', () => {
 
       const validated = validateAuthConfig(config);
 
+      // Persistence is disabled by default
       expect(validated.persistence).toEqual({
-        enabled: true,
+        enabled: false,
         storage: expect.any(Object),
         tokenKey: 'token',
         refreshTokenKey: 'refresh_token',
@@ -458,6 +459,95 @@ describe('validateAuthConfig', () => {
 
       // Restore window
       global.window = originalWindow;
+    });
+  });
+
+  describe('user extraction', () => {
+    it('should not have extractUser by default', () => {
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login'
+      };
+
+      const validated = validateAuthConfig(config);
+      expect(validated.extractUser).toBeUndefined();
+    });
+
+    it('should use extractUser function when provided', () => {
+      const extractUser = jest.fn().mockReturnValue({ id: 1, name: 'Test' });
+
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+        extractUser
+      };
+
+      const validated = validateAuthConfig(config);
+      const response = { user: { id: 1, name: 'Test' } };
+      const result = validated.extractUser!(response);
+
+      expect(extractUser).toHaveBeenCalledWith(response);
+      expect(result).toEqual({ id: 1, name: 'Test' });
+    });
+
+    it('should normalize string extractUser to function', () => {
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+        extractUser: 'user'
+      };
+
+      const validated = validateAuthConfig(config);
+      expect(typeof validated.extractUser).toBe('function');
+
+      const response = { user: { id: 1, name: 'Test' } };
+      const result = validated.extractUser!(response);
+
+      expect(result).toEqual({ id: 1, name: 'Test' });
+    });
+
+    it('should extract nested field using string key', () => {
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+        extractUser: 'account'
+      };
+
+      const validated = validateAuthConfig(config);
+      const response = { account: { id: 2, email: 'test@example.com' } };
+      const result = validated.extractUser!(response);
+
+      expect(result).toEqual({ id: 2, email: 'test@example.com' });
+    });
+
+    it('should return null when string key not found', () => {
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+        extractUser: 'user'
+      };
+
+      const validated = validateAuthConfig(config);
+      const response = { data: { something: 'else' } };
+      const result = validated.extractUser!(response);
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle custom extractUser returning null', () => {
+      const extractUser = jest.fn().mockReturnValue(null);
+
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+        extractUser
+      };
+
+      const validated = validateAuthConfig(config);
+      const response = { authenticated: true };
+      const result = validated.extractUser!(response);
+
+      expect(result).toBeNull();
     });
   });
 });
