@@ -1,6 +1,9 @@
 import { useEffect, useCallback } from 'react';
 import { AuthStore } from './authStore';
 
+// Promise deduplication: prevents multiple concurrent checkAuth calls per store
+const pendingCheckAuth = new WeakMap<AuthStore<any>, Promise<boolean>>();
+
 export function useAuth<U>(store: AuthStore<U>) {
   const { setTokens, setAuthenticated, setUser, unsetUser, tokens, user, isAuthenticated, isTokenExpired } = store();
   const config = store.config;
@@ -57,37 +60,52 @@ export function useAuth<U>(store: AuthStore<U>) {
     }
   }, [tokens, config, setTokens, unsetUser, setAxiosAuth]);
 
-  // Check authentication (cookie mode)
+  // Check authentication (cookie mode) - with promise deduplication
   const checkAuth = useCallback(async (): Promise<boolean> => {
-    if (!config.cookieAuth?.enabled || !config.authCheckUrl) {
+    const authCheckUrl = config.authCheckUrl;
+    if (!config.cookieAuth?.enabled || !authCheckUrl) {
       return false;
     }
 
-    try {
-      const headers = getCsrfHeaders(config);
-      const response = await config.axios.get(config.authCheckUrl, { headers });
+    // Return existing promise if check is already in progress
+    const pending = pendingCheckAuth.get(store);
+    if (pending) {
+      return pending;
+    }
 
-      if (response.data.authenticated) {
-        setAuthenticated(true);
+    const doCheck = async (): Promise<boolean> => {
+      try {
+        const headers = getCsrfHeaders(config);
+        const response = await config.axios.get(authCheckUrl, { headers });
 
-        const extractedUser = config.extractUser?.(response.data);
-        if (extractedUser) {
-          setUser(extractedUser);
-        } else if (config.getUserUrl) {
-          await getCurrentUser();
+        if (response.data.authenticated) {
+          setAuthenticated(true);
+
+          const extractedUser = config.extractUser?.(response.data);
+          if (extractedUser) {
+            setUser(extractedUser);
+          } else if (config.getUserUrl) {
+            await getCurrentUser();
+          }
+
+          return true;
         }
 
-        return true;
+        setAuthenticated(false);
+        return false;
+      } catch (error) {
+        setAuthenticated(false);
+        config.onError?.(error);
+        return false;
+      } finally {
+        pendingCheckAuth.delete(store);
       }
+    };
 
-      setAuthenticated(false);
-      return false;
-    } catch (error) {
-      setAuthenticated(false);
-      config.onError?.(error);
-      return false;
-    }
-  }, [config, setAuthenticated, setUser]);
+    const promise = doCheck();
+    pendingCheckAuth.set(store, promise);
+    return promise;
+  }, [store, config, setAuthenticated, setUser]);
 
   // Get current user
   const getCurrentUser = useCallback(async () => {
