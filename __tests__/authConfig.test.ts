@@ -1,6 +1,5 @@
 import { validateAuthConfig } from '../src/authConfig';
 import { createMockAxios } from './testHelpers';
-import { testConfigs } from './testUtils';
 
 describe('validateAuthConfig', () => {
   let mockAxios: any;
@@ -14,8 +13,6 @@ describe('validateAuthConfig', () => {
       expect(() => {
         validateAuthConfig({
           loginUrl: '/login',
-          logoutUrl: '/logout',
-          extractToken: (data) => data.token
         } as any);
       }).toThrow('AuthConfig: axios instance is required');
     });
@@ -25,28 +22,16 @@ describe('validateAuthConfig', () => {
         validateAuthConfig({
           axios: mockAxios,
           logoutUrl: '/logout',
-          extractToken: (data) => data.token
         } as any);
-      }).toThrow('AuthConfig: tokenUrl or loginUrl is required');
+      }).toThrow('AuthConfig: loginUrl is required');
     });
 
-    it('should accept missing logoutUrl (OAuth compatible)', () => {
+    it('should accept missing logoutUrl', () => {
       expect(() => {
         validateAuthConfig({
           axios: mockAxios,
           loginUrl: '/login',
-          extractToken: (data) => data.token
-        } as any);
-      }).not.toThrow();
-    });
-
-    it('should accept missing extractToken (OAuth compatible)', () => {
-      expect(() => {
-        validateAuthConfig({
-          axios: mockAxios,
-          loginUrl: '/login',
-          logoutUrl: '/logout'
-        } as any);
+        });
       }).not.toThrow();
     });
 
@@ -55,7 +40,6 @@ describe('validateAuthConfig', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
       };
 
       expect(() => validateAuthConfig(config)).not.toThrow();
@@ -63,17 +47,14 @@ describe('validateAuthConfig', () => {
   });
 
   describe('default values', () => {
-    it('should apply default persistence settings', () => {
+    it('should apply default persistence settings (disabled by default)', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
       };
 
       const validated = validateAuthConfig(config);
 
-      // Persistence is disabled by default
       expect(validated.persistence).toEqual({
         enabled: false,
         storage: expect.any(Object),
@@ -88,8 +69,6 @@ describe('validateAuthConfig', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
       };
 
       const validated = validateAuthConfig(config);
@@ -98,12 +77,22 @@ describe('validateAuthConfig', () => {
       expect(headerValue).toBe('Bearer test-token');
     });
 
+    it('should apply default auto-refresh settings', () => {
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+      };
+
+      const validated = validateAuthConfig(config);
+
+      expect(validated.autoRefresh).toBe(true);
+      expect(validated.refreshThreshold).toBe(300000); // 5 minutes
+    });
+
     it('should preserve custom formatAuthHeader', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         formatAuthHeader: (token: string) => `Token ${token}`
       };
 
@@ -118,10 +107,8 @@ describe('validateAuthConfig', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: {
-          enabled: false,
+          enabled: true,
           storage: customStorage,
           tokenKey: 'custom_token',
           userKey: 'custom_user'
@@ -131,12 +118,12 @@ describe('validateAuthConfig', () => {
       const validated = validateAuthConfig(config);
 
       expect(validated.persistence).toEqual({
-        enabled: false,
+        enabled: true,
         storage: customStorage,
         tokenKey: 'custom_token',
-        refreshTokenKey: 'refresh_token', // OAuth defaults are still applied
+        refreshTokenKey: 'refresh_token',
         userKey: 'custom_user',
-        expiryKey: 'expires_at' // OAuth defaults are still applied
+        expiryKey: 'expires_at'
       });
     });
   });
@@ -146,8 +133,6 @@ describe('validateAuthConfig', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
       };
 
       const validated = validateAuthConfig(config);
@@ -158,13 +143,33 @@ describe('validateAuthConfig', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
         getUserUrl: '/me',
-        extractToken: (data: any) => data.token
       };
 
       const validated = validateAuthConfig(config);
       expect(validated.getUserUrl).toBe('/me');
+    });
+
+    it('should preserve refreshUrl when provided', () => {
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+        refreshUrl: '/auth/refresh',
+      };
+
+      const validated = validateAuthConfig(config);
+      expect(validated.refreshUrl).toBe('/auth/refresh');
+    });
+
+    it('should preserve authCheckUrl when provided', () => {
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+        authCheckUrl: '/auth/check',
+      };
+
+      const validated = validateAuthConfig(config);
+      expect(validated.authCheckUrl).toBe('/auth/check');
     });
 
     it('should preserve callback functions', () => {
@@ -175,8 +180,6 @@ describe('validateAuthConfig', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         onError,
         onLogin,
         onLogout
@@ -189,7 +192,7 @@ describe('validateAuthConfig', () => {
     });
   });
 
-  describe('OAuth token extraction', () => {
+  describe('token extraction', () => {
     it('should use custom extractTokens function when provided', () => {
       const customExtractTokens = jest.fn().mockReturnValue({
         accessToken: 'custom-access',
@@ -200,7 +203,7 @@ describe('validateAuthConfig', () => {
 
       const config = {
         axios: mockAxios,
-        tokenUrl: '/oauth/token',
+        loginUrl: '/login',
         extractTokens: customExtractTokens
       };
 
@@ -213,51 +216,10 @@ describe('validateAuthConfig', () => {
       expect(result.refreshToken).toBe('custom-refresh');
     });
 
-    it('should use custom OAuth field extractors', () => {
-      const extractAccessToken = jest.fn().mockReturnValue('custom-access-token');
-      const extractRefreshToken = jest.fn().mockReturnValue('custom-refresh-token');
-      const extractExpiresIn = jest.fn().mockReturnValue(7200);
-      const extractTokenType = jest.fn().mockReturnValue('Custom');
-      const extractScope = jest.fn().mockReturnValue(['read', 'write']);
-
+    it('should handle OAuth 2.0 response with standard fields', () => {
       const config = {
         axios: mockAxios,
-        tokenUrl: '/oauth/token',
-        extractAccessToken,
-        extractRefreshToken,
-        extractExpiresIn,
-        extractTokenType,
-        extractScope
-      };
-
-      const validated = validateAuthConfig(config);
-      const testData = {
-        access_token: 'standard-access',
-        refresh_token: 'standard-refresh',
-        expires_in: 3600,
-        token_type: 'Bearer',
-        scope: 'read write'
-      };
-      
-      const result = validated.extractTokens(testData);
-
-      expect(extractAccessToken).toHaveBeenCalledWith(testData);
-      expect(extractRefreshToken).toHaveBeenCalledWith(testData);
-      expect(extractExpiresIn).toHaveBeenCalledWith(testData);
-      expect(extractTokenType).toHaveBeenCalledWith(testData);
-      expect(extractScope).toHaveBeenCalledWith(testData);
-
-      expect(result.accessToken).toBe('custom-access-token');
-      expect(result.refreshToken).toBe('custom-refresh-token');
-      expect(result.tokenType).toBe('Custom');
-      expect(result.scope).toEqual(['read', 'write']);
-      expect(result.expiresAt).toBeGreaterThan(Date.now() + 7199000); // ~7200 seconds from now
-    });
-
-    it('should handle OAuth response with standard fields', () => {
-      const config = {
-        axios: mockAxios,
-        tokenUrl: '/oauth/token'
+        loginUrl: '/login'
       };
 
       const validated = validateAuthConfig(config);
@@ -265,8 +227,7 @@ describe('validateAuthConfig', () => {
         access_token: 'oauth-access-token',
         refresh_token: 'oauth-refresh-token',
         expires_in: 3600,
-        token_type: 'Bearer',
-        scope: 'read write profile'
+        token_type: 'Bearer'
       };
 
       const result = validated.extractTokens(oauthResponse);
@@ -274,14 +235,13 @@ describe('validateAuthConfig', () => {
       expect(result.accessToken).toBe('oauth-access-token');
       expect(result.refreshToken).toBe('oauth-refresh-token');
       expect(result.tokenType).toBe('Bearer');
-      expect(result.scope).toEqual(['read', 'write', 'profile']);
       expect(result.expiresAt).toBeGreaterThan(Date.now() + 3599000);
     });
 
     it('should handle OAuth response without optional fields', () => {
       const config = {
         axios: mockAxios,
-        tokenUrl: '/oauth/token'
+        loginUrl: '/login'
       };
 
       const validated = validateAuthConfig(config);
@@ -293,35 +253,11 @@ describe('validateAuthConfig', () => {
 
       expect(result.accessToken).toBe('minimal-token');
       expect(result.refreshToken).toBeUndefined();
-      expect(result.tokenType).toBe('Bearer'); // Default
-      expect(result.scope).toBeUndefined();
+      expect(result.tokenType).toBe('Bearer');
       expect(result.expiresAt).toBeUndefined();
     });
 
-    it('should fallback to legacy token extraction', () => {
-      const extractToken = jest.fn().mockReturnValue('legacy-token');
-
-      const config = {
-        axios: mockAxios,
-        loginUrl: '/auth/login',
-        extractToken
-      };
-
-      const validated = validateAuthConfig(config);
-      const legacyResponse = {
-        auth_token: 'django-token',
-        user: { id: 1, name: 'Test User' }
-      };
-
-      const result = validated.extractTokens(legacyResponse);
-
-      expect(extractToken).toHaveBeenCalledWith(legacyResponse);
-      expect(result.accessToken).toBe('legacy-token');
-      expect(result.tokenType).toBe('Bearer'); // Standard default
-      expect(result.refreshToken).toBeUndefined();
-    });
-
-    it('should handle auth_token field without extractToken function', () => {
+    it('should handle auth_token field', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/auth/login'
@@ -358,7 +294,7 @@ describe('validateAuthConfig', () => {
     it('should throw error when no valid token fields found', () => {
       const config = {
         axios: mockAxios,
-        tokenUrl: '/oauth/token'
+        loginUrl: '/login'
       };
 
       const validated = validateAuthConfig(config);
@@ -368,22 +304,67 @@ describe('validateAuthConfig', () => {
       };
 
       expect(() => validated.extractTokens(invalidResponse)).toThrow(
-        'No valid token found in response. Provide extractTokens, extractToken, or ensure response contains access_token/auth_token field.'
+        /No token found in response/
       );
     });
+  });
 
-    it('should provide helpful error message for invalid responses', () => {
+  describe('cookie auth configuration', () => {
+    it('should not have cookieAuth by default', () => {
       const config = {
         axios: mockAxios,
-        loginUrl: '/auth/login'
+        loginUrl: '/login'
       };
 
       const validated = validateAuthConfig(config);
-      const emptyResponse = {};
+      expect(validated.cookieAuth).toBeUndefined();
+    });
 
-      expect(() => validated.extractTokens(emptyResponse)).toThrow(
-        /No valid token found in response/
-      );
+    it('should configure cookie auth with defaults', () => {
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+        cookieAuth: {
+          enabled: true
+        }
+      };
+
+      const validated = validateAuthConfig(config);
+
+      expect(validated.cookieAuth).toEqual({
+        enabled: true,
+        csrf: {
+          enabled: false,
+          headerName: 'X-CSRFToken',
+          cookieName: 'csrftoken'
+        }
+      });
+    });
+
+    it('should configure cookie auth with CSRF', () => {
+      const config = {
+        axios: mockAxios,
+        loginUrl: '/login',
+        cookieAuth: {
+          enabled: true,
+          csrf: {
+            enabled: true,
+            headerName: 'X-CSRF-Token',
+            cookieName: 'csrf_token'
+          }
+        }
+      };
+
+      const validated = validateAuthConfig(config);
+
+      expect(validated.cookieAuth).toEqual({
+        enabled: true,
+        csrf: {
+          enabled: true,
+          headerName: 'X-CSRF-Token',
+          cookieName: 'csrf_token'
+        }
+      });
     });
   });
 
@@ -392,9 +373,8 @@ describe('validateAuthConfig', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: {
+          enabled: true,
           storage: window.localStorage
         }
       };
@@ -407,9 +387,8 @@ describe('validateAuthConfig', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: {
+          enabled: true,
           storage: window.sessionStorage
         }
       };
@@ -429,9 +408,8 @@ describe('validateAuthConfig', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: {
+          enabled: true,
           storage: customStorage as Storage
         }
       };
@@ -443,21 +421,17 @@ describe('validateAuthConfig', () => {
 
   describe('SSR compatibility', () => {
     it('should handle missing window object gracefully', () => {
-      // Temporarily remove window object
       const originalWindow = global.window;
       delete (global as any).window;
 
       const config = {
         axios: mockAxios,
-        loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
+        loginUrl: '/login'
       };
 
       const validated = validateAuthConfig(config);
       expect(validated.persistence.storage).toEqual({});
 
-      // Restore window
       global.window = originalWindow;
     });
   });

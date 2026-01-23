@@ -398,7 +398,7 @@ describe('createAuthStore', () => {
     it('should handle optional refresh token removal', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
-        tokenUrl: '/oauth/token',
+        loginUrl: '/oauth/token',
         persistence: {
           enabled: true,
           storage: window.localStorage
@@ -432,7 +432,7 @@ describe('createAuthStore', () => {
     it('should handle optional expiry removal', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
-        tokenUrl: '/oauth/token',
+        loginUrl: '/oauth/token',
         persistence: {
           enabled: true,
           storage: window.localStorage
@@ -472,7 +472,7 @@ describe('createAuthStore', () => {
       const onError = jest.fn();
       const config = validateAuthConfig({
         axios: mockAxios,
-        tokenUrl: '/oauth/token',
+        loginUrl: '/oauth/token',
         onError,
         persistence: {
           enabled: true,
@@ -501,7 +501,7 @@ describe('createAuthStore', () => {
       const onError = jest.fn();
       const config = validateAuthConfig({
         axios: mockAxios,
-        tokenUrl: '/oauth/token',
+        loginUrl: '/oauth/token',
         onError,
         persistence: {
           enabled: true,
@@ -529,7 +529,7 @@ describe('createAuthStore', () => {
     it('should handle tokens without expiry information', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
-        tokenUrl: '/oauth/token'
+        loginUrl: '/oauth/token'
       });
 
       const store = createAuthStore(config);
@@ -547,7 +547,7 @@ describe('createAuthStore', () => {
     it('should return false when no expiration timestamp available', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
-        tokenUrl: '/oauth/token'
+        loginUrl: '/oauth/token'
       });
 
       const store = createAuthStore(config);
@@ -560,7 +560,7 @@ describe('createAuthStore', () => {
     it('should handle tokens with expiry set to undefined', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
-        tokenUrl: '/oauth/token'
+        loginUrl: '/oauth/token'
       });
 
       const store = createAuthStore(config);
@@ -578,7 +578,7 @@ describe('createAuthStore', () => {
     it('should correctly identify expired tokens', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
-        tokenUrl: '/oauth/token'
+        loginUrl: '/oauth/token'
       });
 
       const store = createAuthStore(config);
@@ -598,7 +598,7 @@ describe('createAuthStore', () => {
     it('should correctly identify valid tokens', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
-        tokenUrl: '/oauth/token'
+        loginUrl: '/oauth/token'
       });
 
       const store = createAuthStore(config);

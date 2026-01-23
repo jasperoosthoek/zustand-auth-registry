@@ -1,284 +1,154 @@
 import { useEffect, useCallback } from 'react';
 import { AuthStore } from './authStore';
-import { createAuthError, AuthErrorCode, AuthError } from './errors';
 
 export function useAuth<U>(store: AuthStore<U>) {
-  const { setTokens, setUser, unsetUser, tokens, user, isTokenExpired } = store();
+  const { setTokens, setAuthenticated, setUser, unsetUser, tokens, user, isAuthenticated, isTokenExpired } = store();
   const config = store.config;
 
-  // OAuth 2.0 refresh token functionality with rotation support
-  const refreshTokens = useCallback(async (): Promise<boolean> => {
-    if (!tokens?.refreshToken) {
-      return false;
-    }
-
-    // Check rotation limits
-    if (config.tokenRotation.maxRotations &&
-        tokens.rotationCount &&
-        tokens.rotationCount >= config.tokenRotation.maxRotations) {
-      const error = new AuthError(
-        AuthErrorCode.REFRESH_FAILED,
-        undefined,
-        'Maximum token rotation limit reached'
-      );
-      config.onError?.(error);
-      unsetUser();
-      setAxiosAuth();
-      return false;
-    }
-
-    try {
-      const response = await config.axios.post(config.tokenUrl, {
-        grant_type: 'refresh_token',
-        refresh_token: tokens.refreshToken,
-      });
-
-      const newTokens = config.extractTokens(response.data);
-
-      // Track token rotation
-      if (config.tokenRotation.enabled && config.tokenRotation.rotateOnRefresh) {
-        const oldToken = tokens.accessToken;
-        newTokens.rotationCount = (tokens.rotationCount || 0) + 1;
-
-        setTokens(newTokens);
-        setAxiosAuth(newTokens.accessToken, newTokens.tokenType);
-
-        config.onTokenRotated?.(oldToken, newTokens);
-      } else {
-        setTokens(newTokens);
-        setAxiosAuth(newTokens.accessToken, newTokens.tokenType);
-      }
-
-      config.onTokenRefresh?.(newTokens);
-      return true;
-    } catch (error) {
-      // Refresh failed, clear tokens
-      const authError = createAuthError(error);
-      unsetUser();
-      setAxiosAuth();
-      config.onError?.(authError);
-      return false;
-    }
-  }, [tokens, config, setTokens, unsetUser]);
-
-  // Cookie-based authentication check
-  const checkAuth = useCallback(async (): Promise<boolean> => {
-    if (!config.cookieAuth?.enabled || !config.authCheckUrl) {
-      return false;
-    }
-
-    try {
-      // Add CSRF token if enabled
-      const headers: Record<string, string> = {};
-      if (config.cookieAuth.csrf.enabled) {
-        const csrfToken = getCookie(config.cookieAuth.csrf.cookieName);
-        if (csrfToken) {
-          headers[config.cookieAuth.csrf.headerName] = csrfToken;
-        }
-      }
-
-      const response = await config.axios.get(config.authCheckUrl, { headers });
-
-      if (response.status === 200 && response.data.authenticated) {
-        // Cookie is valid, set placeholder tokens
-        setTokens({
-          accessToken: '__cookie_managed__',
-          tokenType: 'Cookie',
-        });
-
-        // Extract user from response if extractor provided
-        const user = config.extractUser?.(response.data);
-        if (user) {
-          setUser(user);
-        } else if (config.userInfoUrl || config.getUserUrl) {
-          // Fall back to fetching user separately
-          await getCurrentUser();
-        }
-
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      const authError = createAuthError(error);
-      config.onError?.(authError);
-      return false;
-    }
-  }, [config, setTokens, setUser]);
-
-  // Auto-refresh and authentication setup
-  useEffect(() => {
-    // Cookie mode: Check authentication via auth endpoint
+  // Set axios Authorization header (token mode only)
+  const setAxiosAuth = useCallback((token?: string, tokenType?: string) => {
     if (config.cookieAuth?.enabled) {
-      if (!user) {
-        checkAuth();
-      }
-      return;
-    }
-
-    // Handle current tokens
-    if (tokens?.accessToken) {
-      // Set axios headers immediately
-      setAxiosAuth(tokens.accessToken, tokens.tokenType);
-
-      // Check if token is expired or about to expire
-      if (isTokenExpired()) {
-        // Token is already expired, try to refresh
-        if (tokens.refreshToken && config.autoRefresh) {
-          refreshTokens();
-        } else {
-          unsetUser();
-        }
-        return;
-      }
-
-      // Set up auto-refresh timer if we have expiry info
-      if (tokens.expiresAt && tokens.refreshToken && config.autoRefresh) {
-        const timeUntilExpiry = tokens.expiresAt - Date.now();
-        const refreshTime = Math.max(timeUntilExpiry - config.refreshThreshold, 0);
-
-        const timer = setTimeout(() => {
-          refreshTokens();
-        }, refreshTime);
-
-        return () => clearTimeout(timer);
-      }
-
-      // Try to get user info if missing
-      if (!user && (config.userInfoUrl || config.getUserUrl)) {
-        getCurrentUser().catch((error) => {
-          const authError = createAuthError(error);
-          if (authError.code === AuthErrorCode.FORBIDDEN || authError.code === AuthErrorCode.UNAUTHORIZED) {
-            unsetUser();
-            setAxiosAuth();
-          }
-          config.onError?.(authError);
-        });
-      }
-    }
-  }, [tokens, user, config.autoRefresh, config.refreshThreshold, config.userInfoUrl, config.getUserUrl, config.cookieAuth, isTokenExpired, refreshTokens, unsetUser, checkAuth]);
-
-  const setAxiosAuth = (token?: string, tokenType?: string) => {
-    // Cookie mode: Set CSRF header instead of Authorization
-    if (config.cookieAuth?.enabled) {
+      // Cookie mode: CSRF header if enabled, no Authorization header
       if (config.cookieAuth.csrf.enabled) {
         const csrfToken = getCookie(config.cookieAuth.csrf.cookieName);
         if (csrfToken) {
           config.axios.defaults.headers.common[config.cookieAuth.csrf.headerName] = csrfToken;
         }
       }
-      // Don't set Authorization header in cookie mode
       return;
     }
 
-    // Standard token mode: Set Authorization header
-    if (typeof token !== 'undefined' && token) {
+    // Token mode: Set Authorization header
+    if (token) {
       config.axios.defaults.headers.common['Authorization'] = config.formatAuthHeader(token, tokenType);
     } else {
       delete config.axios.defaults.headers.common['Authorization'];
     }
-  };
+  }, [config]);
 
-  const login = async (
-    credentials: Record<string, string>,
-    callback?: () => void
-  ) => {
+  // Refresh tokens
+  const refresh = useCallback(async (): Promise<boolean> => {
+    if (!config.refreshUrl) return false;
+
     try {
-      // Add CSRF header for cookie mode
-      const headers: Record<string, string> = {};
-      if (config.cookieAuth?.enabled && config.cookieAuth.csrf.enabled) {
-        const csrfToken = getCookie(config.cookieAuth.csrf.cookieName);
-        if (!csrfToken) {
-          throw new AuthError(
-            AuthErrorCode.CSRF_TOKEN_MISSING,
-            undefined,
-            'CSRF token not found'
-          );
-        }
-        headers[config.cookieAuth.csrf.headerName] = csrfToken;
-      }
-
-      const res = await config.axios.post(config.tokenUrl, credentials, { headers });
-
-      // Cookie mode: Server sets httpOnly cookie, just update user
+      // Cookie mode: Just call refresh endpoint, server handles cookie
       if (config.cookieAuth?.enabled) {
-        setTokens({
-          accessToken: '__cookie_managed__',
-          tokenType: 'Cookie',
-        });
-        setAxiosAuth();
-      } else {
-        // Standard mode: Extract and store tokens
-        const tokens = config.extractTokens(res.data);
-        setTokens(tokens);
-        setAxiosAuth(tokens.accessToken, tokens.tokenType);
+        const headers = getCsrfHeaders(config);
+        await config.axios.post(config.refreshUrl, {}, { headers });
+        return true;
       }
 
-      // Extract user from login response if extractor provided
+      // Token mode: Send refresh token, get new tokens
+      if (!tokens?.refreshToken) return false;
+
+      const response = await config.axios.post(config.refreshUrl, {
+        refresh_token: tokens.refreshToken,
+      });
+
+      const newTokens = config.extractTokens(response.data);
+      setTokens(newTokens);
+      setAxiosAuth(newTokens.accessToken, newTokens.tokenType);
+      return true;
+    } catch (error) {
+      unsetUser();
+      setAxiosAuth();
+      config.onError?.(error);
+      return false;
+    }
+  }, [tokens, config, setTokens, unsetUser, setAxiosAuth]);
+
+  // Check authentication (cookie mode)
+  const checkAuth = useCallback(async (): Promise<boolean> => {
+    if (!config.cookieAuth?.enabled || !config.authCheckUrl) {
+      return false;
+    }
+
+    try {
+      const headers = getCsrfHeaders(config);
+      const response = await config.axios.get(config.authCheckUrl, { headers });
+
+      if (response.data.authenticated) {
+        setAuthenticated(true);
+
+        const extractedUser = config.extractUser?.(response.data);
+        if (extractedUser) {
+          setUser(extractedUser);
+        } else if (config.getUserUrl) {
+          await getCurrentUser();
+        }
+
+        return true;
+      }
+
+      setAuthenticated(false);
+      return false;
+    } catch (error) {
+      setAuthenticated(false);
+      config.onError?.(error);
+      return false;
+    }
+  }, [config, setAuthenticated, setUser]);
+
+  // Get current user
+  const getCurrentUser = useCallback(async () => {
+    if (!config.getUserUrl) return;
+
+    try {
+      const res = await config.axios.get<U>(config.getUserUrl);
+      setUser(res.data);
+    } catch (error) {
+      unsetUser();
+      setAxiosAuth();
+      config.onError?.(error);
+      throw error;
+    }
+  }, [config, setUser, unsetUser, setAxiosAuth]);
+
+  // Login
+  const login = async (credentials: Record<string, string>, callback?: () => void) => {
+    try {
+      const headers = config.cookieAuth?.enabled ? getCsrfHeaders(config) : {};
+      const res = await config.axios.post(config.loginUrl, credentials, { headers });
+
+      if (config.cookieAuth?.enabled) {
+        // Cookie mode: Server sets httpOnly cookie, just mark as authenticated
+        setAuthenticated(true);
+      } else {
+        // Token mode: Extract and store tokens
+        const newTokens = config.extractTokens(res.data);
+        setTokens(newTokens);
+        setAxiosAuth(newTokens.accessToken, newTokens.tokenType);
+      }
+
+      // Extract user from response
       const extractedUser = config.extractUser?.(res.data);
       if (extractedUser) {
         setUser(extractedUser);
-      } else if (config.userInfoUrl || config.getUserUrl) {
-        // Fall back to fetching user separately
+        config.onLogin?.(extractedUser);
+      } else if (config.getUserUrl) {
         await getCurrentUser();
+        const currentUser = store.getState().user;
+        if (currentUser) config.onLogin?.(currentUser);
       }
 
-      if (user) {
-        config.onLogin?.(user);
-      }
       callback?.();
-    } catch (err) {
-      const authError = createAuthError(err);
+    } catch (error) {
       unsetUser();
       setAxiosAuth();
-      config.onError?.(authError);
-      throw authError;
+      config.onError?.(error);
+      throw error;
     }
   };
 
-  const getCurrentUser = async () => {
-    const userUrl = config.userInfoUrl || config.getUserUrl;
-    if (!userUrl) return;
-    try {
-      const res = await config.axios.get<U>(userUrl);
-      setUser(res.data);
-    } catch (err) {
-      const authError = createAuthError(err);
-      unsetUser();
-      setAxiosAuth();
-      config.onError?.(authError);
-      throw authError;
-    }
-  };
-
+  // Logout
   const logout = async () => {
     try {
-      // If we have a revoke/logout URL, call it
-      const logoutUrl = config.revokeUrl || config.logoutUrl;
-      if (logoutUrl) {
-        // Add CSRF header for cookie mode
-        const headers: Record<string, string> = {};
-        if (config.cookieAuth?.enabled && config.cookieAuth.csrf.enabled) {
-          const csrfToken = getCookie(config.cookieAuth.csrf.cookieName);
-          if (csrfToken) {
-            headers[config.cookieAuth.csrf.headerName] = csrfToken;
-          }
-        }
-
-        if (config.revokeUrl && tokens?.refreshToken && !config.cookieAuth?.enabled) {
-          // OAuth revoke (only in standard mode with refresh token)
-          await config.axios.post(logoutUrl, {
-            token: tokens.refreshToken,
-            token_type_hint: 'refresh_token'
-          }, { headers });
-        } else {
-          // Simple logout (cookie mode or no refresh token)
-          await config.axios.post(logoutUrl, {}, { headers });
-        }
+      if (config.logoutUrl) {
+        const headers = config.cookieAuth?.enabled ? getCsrfHeaders(config) : {};
+        await config.axios.post(config.logoutUrl, {}, { headers });
       }
-    } catch (err) {
-      const authError = createAuthError(err);
-      config.onError?.(authError);
+    } catch (error) {
+      config.onError?.(error);
     } finally {
       unsetUser();
       setAxiosAuth();
@@ -286,19 +156,64 @@ export function useAuth<U>(store: AuthStore<U>) {
     }
   };
 
-  return { login, getCurrentUser, logout, refreshTokens, checkAuth };
+  // Auto-setup on mount
+  useEffect(() => {
+    // Cookie mode: Check authentication if not yet determined
+    if (config.cookieAuth?.enabled) {
+      if (isAuthenticated === null) {
+        checkAuth();
+      }
+      return;
+    }
+
+    // Token mode: Setup headers and auto-refresh
+    if (tokens?.accessToken) {
+      setAxiosAuth(tokens.accessToken, tokens.tokenType);
+
+      // Check if expired
+      if (isTokenExpired()) {
+        if (tokens.refreshToken && config.autoRefresh) {
+          refresh();
+        } else {
+          unsetUser();
+        }
+        return;
+      }
+
+      // Setup auto-refresh timer
+      if (tokens.expiresAt && tokens.refreshToken && config.autoRefresh) {
+        const timeUntilExpiry = tokens.expiresAt - Date.now();
+        const refreshTime = Math.max(timeUntilExpiry - config.refreshThreshold, 0);
+
+        const timer = setTimeout(refresh, refreshTime);
+        return () => clearTimeout(timer);
+      }
+
+      // Fetch user if missing
+      if (!user && config.getUserUrl) {
+        getCurrentUser().catch(() => {});
+      }
+    }
+  }, [tokens, user, isAuthenticated, config, isTokenExpired, refresh, checkAuth, getCurrentUser, setAxiosAuth, unsetUser]);
+
+  return { login, logout, refresh, checkAuth, getCurrentUser };
 }
 
-// Helper function to get cookie value by name
+// Helper: Get cookie value
 function getCookie(name: string): string | null {
   if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+  return match ? match[2] : null;
+}
 
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-
-  if (parts.length === 2) {
-    return parts.pop()?.split(';').shift() || null;
+// Helper: Get CSRF headers if enabled
+function getCsrfHeaders(config: any): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (config.cookieAuth?.csrf?.enabled) {
+    const csrfToken = getCookie(config.cookieAuth.csrf.cookieName);
+    if (csrfToken) {
+      headers[config.cookieAuth.csrf.headerName] = csrfToken;
+    }
   }
-
-  return null;
+  return headers;
 }

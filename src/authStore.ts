@@ -2,16 +2,17 @@ import { create, StoreApi, UseBoundStore } from 'zustand';
 import { ValidatedAuthConfig, TokenData } from './authConfig';
 
 export type AuthState<U> = {
-  isAuthenticated: boolean;
+  isAuthenticated: boolean | null;  // null = not checked yet (cookie mode)
   user: U | null;
-  tokens: TokenData | null;
-  
-  // OAuth 2.0 methods
+  tokens: TokenData | null;  // null in cookie mode or when logged out
+
+  // Methods
   setTokens: (tokens: TokenData) => void;
+  setAuthenticated: (authenticated: boolean) => void;  // For cookie mode
   setUser: (user: U) => void;
   unsetUser: () => void;
   isTokenExpired: () => boolean;
-  
+
   // Backward compatibility
   token: string;
   setToken: (token: string) => void;
@@ -25,17 +26,12 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
   const { persistence, cookieAuth } = config;
 
   const getStoredTokens = (): TokenData | null => {
-    // Cookie mode: No client-side token access
+    // Cookie mode: No client-side tokens
     if (cookieAuth?.enabled) {
-      // Token is in httpOnly cookie, we can't read it
-      // Just return placeholder to indicate "might be authenticated"
-      return {
-        accessToken: '__cookie_managed__',
-        tokenType: 'Cookie',
-      };
+      return null;
     }
 
-    // Standard localStorage mode
+    // Token mode: Read from storage
     if (!persistence.enabled) return null;
     try {
       const accessToken = persistence.storage.getItem(persistence.tokenKey);
@@ -49,7 +45,7 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
         accessToken,
         refreshToken: refreshToken || undefined,
         expiresAt: expiresAt && !isNaN(expiresAt) ? expiresAt : undefined,
-        tokenType: 'Bearer', // Default, will be updated on setTokens
+        tokenType: 'Bearer',
       };
     } catch {
       return null;
@@ -68,26 +64,28 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
 
   const initialTokens = getStoredTokens();
   const initialUser = getStoredUser();
-  const initialIsAuthenticated = !!initialTokens?.accessToken;
+
+  // Cookie mode: null (unknown until checkAuth)
+  // Token mode: true/false based on token presence
+  const initialIsAuthenticated = cookieAuth?.enabled
+    ? null
+    : !!initialTokens?.accessToken;
 
   const store = create<AuthState<U>>((set, get) => ({
     tokens: initialTokens,
     user: initialUser,
     isAuthenticated: initialIsAuthenticated,
 
-    // OAuth 2.0 methods
+    // Set tokens (token mode)
     setTokens: (tokens: TokenData) => {
-      const user = get().user;
-      const isAuthenticated = !!tokens.accessToken;
+      set({ tokens, isAuthenticated: true, token: tokens.accessToken });
 
-      set({ tokens, isAuthenticated, token: tokens.accessToken });
-
-      // Cookie mode: Server sets httpOnly cookie, skip localStorage
+      // Cookie mode: No localStorage persistence for tokens
       if (cookieAuth?.enabled) {
         return;
       }
 
-      // Standard localStorage mode
+      // Token mode: Persist to storage
       if (persistence.enabled) {
         try {
           persistence.storage.setItem(persistence.tokenKey, tokens.accessToken);
@@ -109,12 +107,14 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
       }
     },
 
+    // Set authenticated state directly (cookie mode)
+    setAuthenticated: (authenticated: boolean) => {
+      set({ isAuthenticated: authenticated });
+    },
+
     setUser: (user: U) => {
-      const tokens = get().tokens;
-      const isAuthenticated = !!tokens?.accessToken;
-      
-      set({ user, isAuthenticated });
-      
+      set({ user });
+
       if (persistence.enabled) {
         try {
           persistence.storage.setItem(persistence.userKey, JSON.stringify(user));
@@ -126,7 +126,7 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
 
     unsetUser: () => {
       set({ user: null, tokens: null, isAuthenticated: false, token: '' });
-      
+
       if (persistence.enabled) {
         try {
           persistence.storage.removeItem(persistence.tokenKey);
@@ -141,28 +141,24 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
 
     isTokenExpired: () => {
       const tokens = get().tokens;
-      if (!tokens?.expiresAt) return false; // No expiry info means no expiration
+      if (!tokens?.expiresAt) return false;
       return Date.now() >= tokens.expiresAt;
     },
 
-    // Backward compatibility - computed property
+    // Backward compatibility
     token: initialTokens?.accessToken || '',
 
     setToken: (token: string) => {
       const currentTokens = get().tokens;
-      const user = get().user;
       const newTokens: TokenData = {
         accessToken: token,
         refreshToken: currentTokens?.refreshToken,
         expiresAt: currentTokens?.expiresAt,
-        tokenType: currentTokens?.tokenType || 'Bearer', // Standard default
-        scope: currentTokens?.scope,
+        tokenType: currentTokens?.tokenType || 'Bearer',
       };
-      
-      const isAuthenticated = !!token;
-      set({ tokens: newTokens, token, isAuthenticated });
-      
-      // Handle persistence
+
+      set({ tokens: newTokens, token, isAuthenticated: !!token });
+
       if (persistence.enabled) {
         try {
           persistence.storage.setItem(persistence.tokenKey, token);

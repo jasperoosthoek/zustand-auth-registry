@@ -21,13 +21,12 @@ describe('createAuthRegistry', () => {
     it('should create stores with correct configuration', () => {
       const getAuthStore = createAuthRegistry<TestModels>();
       const mockAxios = createMockAxios();
-      
+
       const config = {
         axios: mockAxios,
         loginUrl: '/auth/login',
         logoutUrl: '/auth/logout',
         getUserUrl: '/auth/me',
-        extractToken: (data: any) => data.auth_token
       };
 
       const store = getAuthStore('main', config);
@@ -38,7 +37,7 @@ describe('createAuthRegistry', () => {
       expect(store.config.loginUrl).toBe('/auth/login');
       expect(store.config.logoutUrl).toBe('/auth/logout');
       expect(store.config.getUserUrl).toBe('/auth/me');
-      expect(store.config.extractToken).toBe(config.extractToken);
+      expect(typeof store.config.extractTokens).toBe('function');
     });
 
     it('should return same store instance for same key', () => {
@@ -65,12 +64,11 @@ describe('createAuthRegistry', () => {
 
     it('should validate config before store creation', () => {
       const getAuthStore = createAuthRegistry<TestModels>();
-      
+
       expect(() => {
         getAuthStore('main', {
           loginUrl: '/login',
           logoutUrl: '/logout',
-          extractToken: (data: any) => data.token
         } as any);
       }).toThrow('AuthConfig: axios instance is required');
     });
@@ -147,7 +145,6 @@ describe('createAuthRegistry', () => {
         axios: createMockAxios(),
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
       };
 
       const store = getAuthStore('main', config);

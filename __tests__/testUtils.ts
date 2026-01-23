@@ -40,7 +40,6 @@ export const createTestAuthConfig = (overrides: any = {}) => ({
   loginUrl: '/auth/login',
   logoutUrl: '/auth/logout',
   getUserUrl: '/auth/me',
-  extractToken: (data: any) => data.auth_token,
   ...overrides
 });
 
