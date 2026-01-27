@@ -68,7 +68,7 @@ describe('useAuth', () => {
       );
 
       const state = store.getState();
-      expect(state.token).toBe('mock-jwt-token-12345');
+      expect(state.tokens?.accessToken).toBe('mock-jwt-token-12345');
       expect(extractAuthHeader(mockAxiosInstance)).toBe('Bearer mock-jwt-token-12345');
     });
 
@@ -189,7 +189,7 @@ describe('useAuth', () => {
       });
 
       // Set initial authenticated state
-      store.getState().setToken('token');
+      store.getState().setTokens({ accessToken: 'token', tokenType: 'Bearer' });
       store.getState().setUser(mockUser);
 
       const { result } = renderHook(() => useAuth(store));
@@ -202,7 +202,7 @@ describe('useAuth', () => {
 
       const state = store.getState();
       expect(state.user).toBeNull();
-      expect(state.token).toBe('');
+      expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
       expect(extractAuthHeader(mockAxiosInstance)).toBeUndefined();
     });
@@ -238,7 +238,7 @@ describe('useAuth', () => {
       });
 
       // Set initial authenticated state
-      store.getState().setToken('token');
+      store.getState().setTokens({ accessToken: 'token', tokenType: 'Bearer' });
       store.getState().setUser(mockUser);
 
       const { result } = renderHook(() => useAuth(store));
@@ -251,7 +251,7 @@ describe('useAuth', () => {
 
       const state = store.getState();
       expect(state.user).toBeNull();
-      expect(state.token).toBe('');
+      expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
   });
@@ -302,7 +302,7 @@ describe('useAuth', () => {
       });
 
       // Set initial state
-      store.getState().setToken('token');
+      store.getState().setTokens({ accessToken: 'token', tokenType: 'Bearer' });
 
       const { result } = renderHook(() => useAuth(store));
 

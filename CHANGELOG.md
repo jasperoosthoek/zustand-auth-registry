@@ -12,3 +12,5 @@
 - Persistence to localStorage/sessionStorage
 - Auto-refresh with configurable threshold
 - Full TypeScript support with generics
+
+##### Version 0.0.1

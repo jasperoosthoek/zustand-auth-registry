@@ -198,11 +198,11 @@ const { login, logout, getCurrentUser, refreshTokens, checkAuth } = useAuth(auth
 ### Auth Store State
 
 ```typescript
-const { user, token, isAuthenticated } = authStore((s) => s);
+const { user, tokens, isAuthenticated } = authStore((s) => s);
 ```
 
 - `user: U | null` - Current user
-- `token: string` - Access token
+- `tokens: TokenData | null` - Token data (access token, refresh token, etc.)
 - `isAuthenticated: boolean` - Authentication status
 
 ## Related Projects

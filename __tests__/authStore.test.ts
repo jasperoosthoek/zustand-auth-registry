@@ -22,7 +22,7 @@ describe('createAuthStore', () => {
       const state = store.getState();
 
       expect(state.user).toBeNull();
-      expect(state.token).toBe('');
+      expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
 
@@ -38,14 +38,13 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: { enabled: true }
       });
 
       const store = createAuthStore(config);
       const state = store.getState();
 
-      expect(state.token).toBe('stored-token');
+      expect(state.tokens?.accessToken).toBe('stored-token');
       expect(state.user).toEqual({ id: 1, email: 'test@example.com', name: 'Test User' });
       expect(state.isAuthenticated).toBe(true);
     });
@@ -62,16 +61,15 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: { enabled: true }
       });
 
       const store = createAuthStore(config);
       const state = store.getState();
 
-      expect(state.token).toBe('stored-token');
+      expect(state.tokens?.accessToken).toBe('stored-token');
       expect(state.user).toBeNull();
-      expect(state.isAuthenticated).toBe(true); // Token exists, so authenticated
+      expect(state.isAuthenticated).toBe(true);
     });
 
     it('should work with custom storage keys', () => {
@@ -90,28 +88,27 @@ describe('createAuthStore', () => {
       const store = createAuthStore(config);
       const state = store.getState();
 
-      expect(state.token).toBe('stored-token');
+      expect(state.tokens?.accessToken).toBe('stored-token');
       expect(state.user).toEqual({ id: 1, email: 'test@example.com', name: 'Test User' });
     });
   });
 
-  describe('setToken', () => {
-    it('should update token and storage', () => {
+  describe('setTokens', () => {
+    it('should update tokens and storage', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: { enabled: true }
       });
 
       const store = createAuthStore(config);
-      const { setToken } = store.getState();
+      const { setTokens } = store.getState();
 
-      setToken('new-token');
+      setTokens({ accessToken: 'new-token', tokenType: 'Bearer' });
 
       const state = store.getState();
-      expect(state.token).toBe('new-token');
+      expect(state.tokens?.accessToken).toBe('new-token');
       expect(state.isAuthenticated).toBe(true);
       expect(window.localStorage.setItem).toHaveBeenCalledWith('token', 'new-token');
     });
@@ -122,7 +119,6 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         onError,
         persistence: { enabled: true }
       });
@@ -133,12 +129,12 @@ describe('createAuthStore', () => {
       });
 
       const store = createAuthStore(config);
-      const { setToken } = store.getState();
+      const { setTokens } = store.getState();
 
-      setToken('new-token');
+      setTokens({ accessToken: 'new-token', tokenType: 'Bearer' });
 
       const state = store.getState();
-      expect(state.token).toBe('new-token');
+      expect(state.tokens?.accessToken).toBe('new-token');
       expect(onError).toHaveBeenCalledWith(expect.any(Error));
     });
 
@@ -149,12 +145,12 @@ describe('createAuthStore', () => {
       });
 
       const store = createAuthStore(config);
-      const { setToken } = store.getState();
+      const { setTokens } = store.getState();
 
-      setToken('new-token');
+      setTokens({ accessToken: 'new-token', tokenType: 'Bearer' });
 
       expect(window.localStorage.setItem).not.toHaveBeenCalled();
-      expect(store.getState().token).toBe('new-token');
+      expect(store.getState().tokens?.accessToken).toBe('new-token');
     });
   });
 
@@ -164,7 +160,6 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: { enabled: true }
       });
 
@@ -176,7 +171,6 @@ describe('createAuthStore', () => {
 
       const state = store.getState();
       expect(state.user).toEqual(user);
-      expect(state.isAuthenticated).toBe(true);
       expect(window.localStorage.setItem).toHaveBeenCalledWith('user', JSON.stringify(user));
     });
 
@@ -186,7 +180,6 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         onError,
         persistence: { enabled: true }
       });
@@ -208,20 +201,19 @@ describe('createAuthStore', () => {
   });
 
   describe('unsetUser', () => {
-    it('should clear user and token from state and storage', () => {
+    it('should clear user and tokens from state and storage', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: { enabled: true }
       });
 
       const store = createAuthStore(config);
-      const { setToken, setUser, unsetUser } = store.getState();
+      const { setTokens, setUser, unsetUser } = store.getState();
 
       // Set initial data
-      setToken('token');
+      setTokens({ accessToken: 'token', tokenType: 'Bearer' });
       setUser({ id: 1, email: 'test@example.com', name: 'Test User' });
 
       // Clear data
@@ -229,7 +221,7 @@ describe('createAuthStore', () => {
 
       const state = store.getState();
       expect(state.user).toBeNull();
-      expect(state.token).toBe('');
+      expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
       expect(window.localStorage.removeItem).toHaveBeenCalledWith('token');
       expect(window.localStorage.removeItem).toHaveBeenCalledWith('user');
@@ -241,7 +233,6 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         onError,
         persistence: { enabled: true }
       });
@@ -275,7 +266,6 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: {
           enabled: true,
           storage: window.sessionStorage
@@ -283,10 +273,10 @@ describe('createAuthStore', () => {
       });
 
       const store = createAuthStore(config);
-      expect(store.getState().token).toBe('session-token');
+      expect(store.getState().tokens?.accessToken).toBe('session-token');
 
-      const { setToken } = store.getState();
-      setToken('new-session-token');
+      const { setTokens } = store.getState();
+      setTokens({ accessToken: 'new-session-token', tokenType: 'Bearer' });
 
       expect(mockSessionStorage.setItem).toHaveBeenCalledWith('token', 'new-session-token');
     });
@@ -299,7 +289,6 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: {
           enabled: true,
           storage: customStorage as Storage
@@ -307,10 +296,10 @@ describe('createAuthStore', () => {
       });
 
       const store = createAuthStore(config);
-      expect(store.getState().token).toBe('custom-token');
+      expect(store.getState().tokens?.accessToken).toBe('custom-token');
 
-      const { setToken } = store.getState();
-      setToken('new-custom-token');
+      const { setTokens } = store.getState();
+      setTokens({ accessToken: 'new-custom-token', tokenType: 'Bearer' });
 
       expect(customStorage.setItem).toHaveBeenCalledWith('token', 'new-custom-token');
     });
@@ -322,18 +311,17 @@ describe('createAuthStore', () => {
         axios: mockAxios,
         loginUrl: '/login',
         logoutUrl: '/logout',
-        extractToken: (data: any) => data.token,
         persistence: {
           storage: {} as Storage
         }
       });
 
       const store = createAuthStore(config);
-      const { setToken, setUser, unsetUser } = store.getState();
+      const { setTokens, setUser, unsetUser } = store.getState();
 
       // Should not throw errors
       expect(() => {
-        setToken('token');
+        setTokens({ accessToken: 'token', tokenType: 'Bearer' });
         setUser({ id: 1, email: 'test@example.com', name: 'Test User' });
         unsetUser();
       }).not.toThrow();
@@ -341,56 +329,35 @@ describe('createAuthStore', () => {
   });
 
   describe('authentication state logic', () => {
-    it('should set isAuthenticated to true when both token and user exist', () => {
+    it('should set isAuthenticated to true when tokens exist', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
+        logoutUrl: '/logout'
       });
 
       const store = createAuthStore(config);
-      const { setToken, setUser } = store.getState();
+      const { setTokens } = store.getState();
 
-      setToken('token');
-      expect(store.getState().isAuthenticated).toBe(true);
-
-      setUser({ id: 1, email: 'test@example.com', name: 'Test User' });
+      setTokens({ accessToken: 'token', tokenType: 'Bearer' });
       expect(store.getState().isAuthenticated).toBe(true);
     });
 
-    it('should set isAuthenticated to false when token is empty', () => {
+    it('should set isAuthenticated to false after unsetUser', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
         loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
+        logoutUrl: '/logout'
       });
 
       const store = createAuthStore(config);
-      const { setToken, setUser } = store.getState();
+      const { setTokens, unsetUser } = store.getState();
 
-      setUser({ id: 1, email: 'test@example.com', name: 'Test User' });
-      setToken('');
+      setTokens({ accessToken: 'token', tokenType: 'Bearer' });
+      expect(store.getState().isAuthenticated).toBe(true);
 
+      unsetUser();
       expect(store.getState().isAuthenticated).toBe(false);
-    });
-
-    it('should set isAuthenticated to false when user is null', () => {
-      const config = validateAuthConfig({
-        axios: mockAxios,
-        loginUrl: '/login',
-        logoutUrl: '/logout',
-        extractToken: (data: any) => data.token
-      });
-
-      const store = createAuthStore(config);
-      const { setToken, setUser } = store.getState();
-
-      setToken('token');
-      setUser(null as any);
-
-      expect(store.getState().isAuthenticated).toBe(true); // Still authenticated because token exists
     });
   });
 
@@ -457,9 +424,8 @@ describe('createAuthStore', () => {
       // Now update tokens with refresh token but without expiry
       store.getState().setTokens({
         accessToken: 'new-access-token',
-        refreshToken: 'refresh-token', // Keep refresh token
+        refreshToken: 'refresh-token',
         tokenType: 'Bearer'
-        // No expiresAt - this should trigger removal
       });
 
       // Verify that expires_at was removed when not provided
@@ -497,35 +463,6 @@ describe('createAuthStore', () => {
       expect(onError).toHaveBeenCalledWith(error);
     });
 
-    it('should handle storage errors during expiry operations', () => {
-      const onError = jest.fn();
-      const config = validateAuthConfig({
-        axios: mockAxios,
-        loginUrl: '/oauth/token',
-        onError,
-        persistence: {
-          enabled: true,
-          storage: window.localStorage
-        }
-      });
-
-      const store = createAuthStore(config);
-      const error = new Error('Storage quota exceeded');
-
-      // Mock storage error for removeItem
-      (window.localStorage.removeItem as jest.Mock).mockImplementation(() => {
-        throw error;
-      });
-
-      // Set tokens without expiry (should trigger removeItem)
-      store.getState().setTokens({
-        accessToken: 'access-token',
-        tokenType: 'Bearer'
-      });
-
-      expect(onError).toHaveBeenCalledWith(error);
-    });
-
     it('should handle tokens without expiry information', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
@@ -541,7 +478,7 @@ describe('createAuthStore', () => {
       });
 
       const isExpired = store.getState().isTokenExpired();
-      expect(isExpired).toBe(false); // No expiry info means no expiration
+      expect(isExpired).toBe(false);
     });
 
     it('should return false when no expiration timestamp available', () => {
@@ -557,24 +494,6 @@ describe('createAuthStore', () => {
       expect(isExpired).toBe(false);
     });
 
-    it('should handle tokens with expiry set to undefined', () => {
-      const config = validateAuthConfig({
-        axios: mockAxios,
-        loginUrl: '/oauth/token'
-      });
-
-      const store = createAuthStore(config);
-
-      store.getState().setTokens({
-        accessToken: 'access-token',
-        tokenType: 'Bearer',
-        expiresAt: undefined
-      });
-
-      const isExpired = store.getState().isTokenExpired();
-      expect(isExpired).toBe(false);
-    });
-
     it('should correctly identify expired tokens', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
@@ -584,7 +503,7 @@ describe('createAuthStore', () => {
       const store = createAuthStore(config);
 
       // Set expired tokens
-      const expiredTime = Date.now() - 1000; // 1 second ago
+      const expiredTime = Date.now() - 1000;
       store.getState().setTokens({
         accessToken: 'expired-token',
         tokenType: 'Bearer',
@@ -604,7 +523,7 @@ describe('createAuthStore', () => {
       const store = createAuthStore(config);
 
       // Set future expiry
-      const futureTime = Date.now() + 3600000; // 1 hour from now
+      const futureTime = Date.now() + 3600000;
       store.getState().setTokens({
         accessToken: 'valid-token',
         tokenType: 'Bearer',

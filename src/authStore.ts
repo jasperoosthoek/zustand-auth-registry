@@ -12,10 +12,6 @@ export type AuthState<U> = {
   setUser: (user: U) => void;
   unsetUser: () => void;
   isTokenExpired: () => boolean;
-
-  // Backward compatibility
-  token: string;
-  setToken: (token: string) => void;
 };
 
 export type AuthStore<U> = UseBoundStore<StoreApi<AuthState<U>>> & {
@@ -76,9 +72,8 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
     user: initialUser,
     isAuthenticated: initialIsAuthenticated,
 
-    // Set tokens (token mode)
     setTokens: (tokens: TokenData) => {
-      set({ tokens, isAuthenticated: true, token: tokens.accessToken });
+      set({ tokens, isAuthenticated: true });
 
       // Cookie mode: No localStorage persistence for tokens
       if (cookieAuth?.enabled) {
@@ -107,7 +102,6 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
       }
     },
 
-    // Set authenticated state directly (cookie mode)
     setAuthenticated: (authenticated: boolean) => {
       set({ isAuthenticated: authenticated });
     },
@@ -125,7 +119,7 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
     },
 
     unsetUser: () => {
-      set({ user: null, tokens: null, isAuthenticated: false, token: '' });
+      set({ user: null, tokens: null, isAuthenticated: false });
 
       if (persistence.enabled) {
         try {
@@ -143,29 +137,6 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
       const tokens = get().tokens;
       if (!tokens?.expiresAt) return false;
       return Date.now() >= tokens.expiresAt;
-    },
-
-    // Backward compatibility
-    token: initialTokens?.accessToken || '',
-
-    setToken: (token: string) => {
-      const currentTokens = get().tokens;
-      const newTokens: TokenData = {
-        accessToken: token,
-        refreshToken: currentTokens?.refreshToken,
-        expiresAt: currentTokens?.expiresAt,
-        tokenType: currentTokens?.tokenType || 'Bearer',
-      };
-
-      set({ tokens: newTokens, token, isAuthenticated: !!token });
-
-      if (persistence.enabled) {
-        try {
-          persistence.storage.setItem(persistence.tokenKey, token);
-        } catch (error) {
-          config.onError?.(error);
-        }
-      }
     },
   }));
 

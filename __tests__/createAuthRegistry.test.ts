@@ -81,7 +81,7 @@ describe('createAuthRegistry', () => {
 
       const state = store.getState();
       expect(state.user).toBeNull();
-      expect(state.token).toBe('');
+      expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
 
@@ -89,9 +89,9 @@ describe('createAuthRegistry', () => {
       const getAuthStore = createAuthRegistry<TestModels>();
       const store = getAuthStore('main', testConfigs.basic);
 
-      const { setToken, setUser } = store.getState();
-      
-      expect(typeof setToken).toBe('function');
+      const { setTokens, setUser } = store.getState();
+
+      expect(typeof setTokens).toBe('function');
       expect(typeof setUser).toBe('function');
       expect(typeof store.getState().unsetUser).toBe('function');
     });
