@@ -154,6 +154,28 @@ describe('createAuthStore', () => {
     });
   });
 
+  describe('setBearerToken', () => {
+    it('should set Bearer token via convenience method', () => {
+      const config = validateAuthConfig({
+        axios: mockAxios,
+        loginUrl: '/login',
+        logoutUrl: '/logout',
+        persistence: { enabled: true }
+      });
+
+      const store = createAuthStore(config);
+      const { setBearerToken } = store.getState();
+
+      setBearerToken('my-token');
+
+      const state = store.getState();
+      expect(state.tokens?.accessToken).toBe('my-token');
+      expect(state.tokens?.tokenType).toBe('Bearer');
+      expect(state.isAuthenticated).toBe(true);
+      expect(window.localStorage.setItem).toHaveBeenCalledWith('token', 'my-token');
+    });
+  });
+
   describe('setUser', () => {
     it('should update user and storage', () => {
       const config = validateAuthConfig({

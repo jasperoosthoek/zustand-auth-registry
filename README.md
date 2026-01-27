@@ -198,12 +198,19 @@ const { login, logout, getCurrentUser, refreshTokens, checkAuth } = useAuth(auth
 ### Auth Store State
 
 ```typescript
-const { user, tokens, isAuthenticated } = authStore((s) => s);
+const { user, tokens, isAuthenticated, setBearerToken, setTokens } = authStore((s) => s);
 ```
 
+**State:**
 - `user: U | null` - Current user
 - `tokens: TokenData | null` - Token data (access token, refresh token, etc.)
 - `isAuthenticated: boolean` - Authentication status
+
+**Methods:**
+- `setBearerToken(token)` - Convenience method for simple Bearer token auth
+- `setTokens(tokenData)` - Set full token data (access, refresh, expiry)
+- `setUser(user)` - Set user
+- `unsetUser()` - Clear user and tokens
 
 ## Related Projects
 

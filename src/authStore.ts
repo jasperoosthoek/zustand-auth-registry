@@ -8,6 +8,7 @@ export type AuthState<U> = {
 
   // Methods
   setTokens: (tokens: TokenData) => void;
+  setBearerToken: (token: string) => void;  // Convenience for simple Bearer token auth
   setAuthenticated: (authenticated: boolean) => void;  // For cookie mode
   setUser: (user: U) => void;
   unsetUser: () => void;
@@ -100,6 +101,10 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
           config.onError?.(error);
         }
       }
+    },
+
+    setBearerToken: (token: string) => {
+      get().setTokens({ accessToken: token, tokenType: 'Bearer' });
     },
 
     setAuthenticated: (authenticated: boolean) => {
