@@ -1,5 +1,8 @@
 # Changelog
 
+##### Version 0.0.3
+- Automatic `CSRF` token injection via `axios` interceptor for `POST`/`PUT`/`PATCH`/`DELETE` requests
+
 ##### Version 0.0.2
 - **BREAKING**: Remove `token` and `setToken` - use `tokens?.accessToken` and `setBearerToken`/`setTokens` instead
 - New `setBearerToken(token)` convenience method for simple Bearer token auth

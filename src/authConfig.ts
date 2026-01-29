@@ -38,7 +38,10 @@ export type AuthConfig<U> = {
     csrf?: {
       enabled: boolean;
       headerName?: string;  // Default: 'X-CSRFToken'
+      // Option 1: Provide cookie name (web only, uses document.cookie)
       cookieName?: string;  // Default: 'csrftoken'
+      // Option 2: Provide custom token getter (platform-agnostic)
+      getToken?: () => string | null;
     };
   };
 
@@ -85,7 +88,7 @@ export type ValidatedAuthConfig<U> = {
     csrf: {
       enabled: boolean;
       headerName: string;
-      cookieName: string;
+      getToken: () => string | null;
     };
   };
 
@@ -120,7 +123,9 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
     csrf: {
       enabled: config.cookieAuth.csrf?.enabled ?? false,
       headerName: config.cookieAuth.csrf?.headerName || 'X-CSRFToken',
-      cookieName: config.cookieAuth.csrf?.cookieName || 'csrftoken',
+      getToken: config.cookieAuth.csrf?.getToken ?? createCookieTokenGetter(
+        config.cookieAuth.csrf?.cookieName || 'csrftoken'
+      ),
     },
   } : undefined;
 
@@ -188,4 +193,13 @@ function normalizeExtractUser<U>(
     return (data: any) => data[extractUser] ?? null;
   }
   return extractUser;
+}
+
+// Create a cookie-based CSRF token getter (web only)
+function createCookieTokenGetter(cookieName: string): () => string | null {
+  return () => {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(new RegExp(`${cookieName}=([^;]+)`));
+    return match ? match[1] : null;
+  };
 }

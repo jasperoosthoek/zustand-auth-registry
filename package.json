@@ -1,6 +1,6 @@
 {
     "name": "@jasperoosthoek/zustand-auth-registry",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "author": "jasperoosthoek",
     "license": "MIT",
     "repository": "https://github.com/jasperoosthoek/zustand-auth-registry",

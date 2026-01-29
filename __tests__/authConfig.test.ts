@@ -331,14 +331,10 @@ describe('validateAuthConfig', () => {
 
       const validated = validateAuthConfig(config);
 
-      expect(validated.cookieAuth).toEqual({
-        enabled: true,
-        csrf: {
-          enabled: false,
-          headerName: 'X-CSRFToken',
-          cookieName: 'csrftoken'
-        }
-      });
+      expect(validated.cookieAuth?.enabled).toBe(true);
+      expect(validated.cookieAuth?.csrf.enabled).toBe(false);
+      expect(validated.cookieAuth?.csrf.headerName).toBe('X-CSRFToken');
+      expect(typeof validated.cookieAuth?.csrf.getToken).toBe('function');
     });
 
     it('should configure cookie auth with CSRF', () => {
@@ -357,14 +353,10 @@ describe('validateAuthConfig', () => {
 
       const validated = validateAuthConfig(config);
 
-      expect(validated.cookieAuth).toEqual({
-        enabled: true,
-        csrf: {
-          enabled: true,
-          headerName: 'X-CSRF-Token',
-          cookieName: 'csrf_token'
-        }
-      });
+      expect(validated.cookieAuth?.enabled).toBe(true);
+      expect(validated.cookieAuth?.csrf.enabled).toBe(true);
+      expect(validated.cookieAuth?.csrf.headerName).toBe('X-CSRF-Token');
+      expect(typeof validated.cookieAuth?.csrf.getToken).toBe('function');
     });
   });
 

@@ -9,15 +9,10 @@ export function useAuth<U>(store: AuthStore<U>) {
   const config = store.config;
 
   // Set axios Authorization header (token mode only)
+  // Note: CSRF is handled by interceptor in authStore.ts
   const setAxiosAuth = useCallback((token?: string, tokenType?: string) => {
     if (config.cookieAuth?.enabled) {
-      // Cookie mode: CSRF header if enabled, no Authorization header
-      if (config.cookieAuth.csrf.enabled) {
-        const csrfToken = getCookie(config.cookieAuth.csrf.cookieName);
-        if (csrfToken) {
-          config.axios.defaults.headers.common[config.cookieAuth.csrf.headerName] = csrfToken;
-        }
-      }
+      // Cookie mode: CSRF handled by interceptor, no Authorization header needed
       return;
     }
 
@@ -217,18 +212,11 @@ export function useAuth<U>(store: AuthStore<U>) {
   return { login, logout, refresh, checkAuth, getCurrentUser };
 }
 
-// Helper: Get cookie value
-function getCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-  return match ? match[2] : null;
-}
-
-// Helper: Get CSRF headers if enabled
+// Helper: Get CSRF headers if enabled (uses getToken from config)
 function getCsrfHeaders(config: any): Record<string, string> {
   const headers: Record<string, string> = {};
   if (config.cookieAuth?.csrf?.enabled) {
-    const csrfToken = getCookie(config.cookieAuth.csrf.cookieName);
+    const csrfToken = config.cookieAuth.csrf.getToken();
     if (csrfToken) {
       headers[config.cookieAuth.csrf.headerName] = csrfToken;
     }

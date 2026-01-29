@@ -19,8 +19,33 @@ export type AuthStore<U> = UseBoundStore<StoreApi<AuthState<U>>> & {
   config: ValidatedAuthConfig<U>;
 };
 
+// Methods that modify state (require CSRF protection)
+const CSRF_METHODS = ['post', 'put', 'patch', 'delete'];
+
+const setupCsrfInterceptor = <U>(config: ValidatedAuthConfig<U>): number | null => {
+  if (!config.cookieAuth?.csrf.enabled) {
+    return null;
+  }
+
+  const { headerName, getToken } = config.cookieAuth.csrf;
+
+  return config.axios.interceptors.request.use((requestConfig) => {
+    const method = requestConfig.method?.toLowerCase();
+    if (method && CSRF_METHODS.includes(method)) {
+      const csrfToken = getToken();
+      if (csrfToken) {
+        requestConfig.headers[headerName] = csrfToken;
+      }
+    }
+    return requestConfig;
+  });
+};
+
 export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U> => {
   const { persistence, cookieAuth } = config;
+
+  // Set up CSRF interceptor if enabled
+  setupCsrfInterceptor(config);
 
   const getStoredTokens = (): TokenData | null => {
     // Cookie mode: No client-side tokens
