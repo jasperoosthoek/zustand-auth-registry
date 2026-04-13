@@ -16,3 +16,4 @@ Thumbs.db
 
 # AI documentation used during development
 .*.md
+.codex
