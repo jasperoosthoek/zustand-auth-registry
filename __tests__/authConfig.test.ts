@@ -60,7 +60,7 @@ describe('validateAuthConfig', () => {
         storage: expect.any(Object),
         tokenKey: 'token',
         refreshTokenKey: 'refresh_token',
-        userKey: 'user',
+        dataKey: 'data',
         expiryKey: 'expires_at'
       });
     });
@@ -111,7 +111,7 @@ describe('validateAuthConfig', () => {
           enabled: true,
           storage: customStorage,
           tokenKey: 'custom_token',
-          userKey: 'custom_user'
+          dataKey: 'custom_data'
         }
       };
 
@@ -122,32 +122,32 @@ describe('validateAuthConfig', () => {
         storage: customStorage,
         tokenKey: 'custom_token',
         refreshTokenKey: 'refresh_token',
-        userKey: 'custom_user',
+        dataKey: 'custom_data',
         expiryKey: 'expires_at'
       });
     });
   });
 
   describe('optional fields', () => {
-    it('should handle missing getUserUrl', () => {
+    it('should handle missing dataUrl', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
       };
 
       const validated = validateAuthConfig(config);
-      expect(validated.getUserUrl).toBeUndefined();
+      expect(validated.dataUrl).toBeUndefined();
     });
 
-    it('should preserve getUserUrl when provided', () => {
+    it('should preserve dataUrl when provided', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        getUserUrl: '/me',
+        dataUrl: '/me',
       };
 
       const validated = validateAuthConfig(config);
-      expect(validated.getUserUrl).toBe('/me');
+      expect(validated.dataUrl).toBe('/me');
     });
 
     it('should preserve refreshUrl when provided', () => {
@@ -428,60 +428,60 @@ describe('validateAuthConfig', () => {
     });
   });
 
-  describe('user extraction', () => {
-    it('should not have extractUser by default', () => {
+  describe('data extraction', () => {
+    it('should not have extractData by default', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login'
       };
 
       const validated = validateAuthConfig(config);
-      expect(validated.extractUser).toBeUndefined();
+      expect(validated.extractData).toBeUndefined();
     });
 
-    it('should use extractUser function when provided', () => {
-      const extractUser = jest.fn().mockReturnValue({ id: 1, name: 'Test' });
+    it('should use extractData function when provided', () => {
+      const extractData = jest.fn().mockReturnValue({ id: 1, name: 'Test' });
 
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        extractUser
+        extractData
       };
 
       const validated = validateAuthConfig(config);
       const response = { user: { id: 1, name: 'Test' } };
-      const result = validated.extractUser!(response);
+      const result = validated.extractData!(response);
 
-      expect(extractUser).toHaveBeenCalledWith(response);
+      expect(extractData).toHaveBeenCalledWith(response);
       expect(result).toEqual({ id: 1, name: 'Test' });
     });
 
-    it('should normalize string extractUser to function', () => {
+    it('should normalize string extractData to function', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        extractUser: 'user'
+        extractData: 'user'
       };
 
       const validated = validateAuthConfig(config);
-      expect(typeof validated.extractUser).toBe('function');
+      expect(typeof validated.extractData).toBe('function');
 
       const response = { user: { id: 1, name: 'Test' } };
-      const result = validated.extractUser!(response);
+      const result = validated.extractData!(response);
 
       expect(result).toEqual({ id: 1, name: 'Test' });
     });
 
-    it('should extract nested field using string key', () => {
+    it('should extract field using string key', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        extractUser: 'account'
+        extractData: 'account'
       };
 
       const validated = validateAuthConfig(config);
       const response = { account: { id: 2, email: 'test@example.com' } };
-      const result = validated.extractUser!(response);
+      const result = validated.extractData!(response);
 
       expect(result).toEqual({ id: 2, email: 'test@example.com' });
     });
@@ -490,28 +490,28 @@ describe('validateAuthConfig', () => {
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        extractUser: 'user'
+        extractData: 'user'
       };
 
       const validated = validateAuthConfig(config);
       const response = { data: { something: 'else' } };
-      const result = validated.extractUser!(response);
+      const result = validated.extractData!(response);
 
       expect(result).toBeNull();
     });
 
-    it('should handle custom extractUser returning null', () => {
-      const extractUser = jest.fn().mockReturnValue(null);
+    it('should handle custom extractData returning null', () => {
+      const extractData = jest.fn().mockReturnValue(null);
 
       const config = {
         axios: mockAxios,
         loginUrl: '/login',
-        extractUser
+        extractData
       };
 
       const validated = validateAuthConfig(config);
       const response = { authenticated: true };
-      const result = validated.extractUser!(response);
+      const result = validated.extractData!(response);
 
       expect(result).toBeNull();
     });

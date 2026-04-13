@@ -18,7 +18,7 @@ export const mockUsers: ExtendedTestUser[] = [
   },
   {
     id: 2,
-    email: 'user@example.com', 
+    email: 'user@example.com',
     name: 'Regular User',
     role: 'user',
     permissions: ['read'],
@@ -39,41 +39,41 @@ export const createTestAuthConfig = (overrides: any = {}) => ({
   axios: createMockAxios(),
   loginUrl: '/auth/login',
   logoutUrl: '/auth/logout',
-  getUserUrl: '/auth/me',
+  dataUrl: '/auth/me',
   ...overrides
 });
 
 // Mock responses for different scenarios
 export const mockResponses = {
-  loginSuccess: { 
-    data: { 
+  loginSuccess: {
+    data: {
       auth_token: 'mock-jwt-token-12345',
-      user: mockUser 
-    } 
+      user: mockUser
+    }
   },
-  loginFailure: { 
-    response: { 
-      status: 401, 
-      data: { detail: 'Invalid credentials' } 
-    } 
+  loginFailure: {
+    response: {
+      status: 401,
+      data: { detail: 'Invalid credentials' }
+    }
   },
-  userSuccess: { 
-    data: mockUser 
+  dataSuccess: {
+    data: mockUser
   },
-  userFailure: { 
-    response: { 
-      status: 403, 
-      data: { detail: 'Unauthorized' } 
-    } 
+  dataFailure: {
+    response: {
+      status: 403,
+      data: { detail: 'Unauthorized' }
+    }
   },
-  logoutSuccess: { 
-    data: { message: 'Logged out successfully' } 
+  logoutSuccess: {
+    data: { message: 'Logged out successfully' }
   },
-  logoutFailure: { 
-    response: { 
-      status: 500, 
-      data: { detail: 'Server error' } 
-    } 
+  logoutFailure: {
+    response: {
+      status: 500,
+      data: { detail: 'Server error' }
+    }
   }
 };
 
@@ -89,15 +89,15 @@ export const testConfigs = {
   withTokenFormat: createTestAuthConfig({
     formatAuthHeader: (token: string) => `Token ${token}`
   }),
-  withoutGetUser: createTestAuthConfig({
-    getUserUrl: undefined
+  withoutDataUrl: createTestAuthConfig({
+    dataUrl: undefined
   }),
   withCustomStorage: createTestAuthConfig({
     persistence: {
       enabled: true,
       storage: window.sessionStorage,
       tokenKey: 'custom_token',
-      userKey: 'custom_user'
+      dataKey: 'custom_data'
     }
   }),
   withoutPersistence: createTestAuthConfig({

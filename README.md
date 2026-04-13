@@ -4,14 +4,14 @@ Authentication state management library using Zustand and Axios with a type-safe
 
 ## Features
 
-- **Authentication State Management** - User, token, and authentication status with reactive updates
+- **Authentication State Management** - Data, token, and authentication status with reactive updates
 - **Registry Pattern** - Type-safe multiple auth stores per application
 - **Axios Integration** - Automatic authentication header management
 - **Token Lifecycle** - Automatic expiration detection and refresh workflows
 - **Cookie Authentication** - httpOnly cookie support with CSRF protection
 - **Typed Errors** - `AuthError` class with error codes for better error handling
 - **Persistence** - Flexible storage options (localStorage, sessionStorage, custom)
-- **Type-Safe** - Full TypeScript support with generics for user models
+- **Type-Safe** - Full TypeScript support with generics for your auth data
 
 ## Installation
 
@@ -25,7 +25,7 @@ npm install @jasperoosthoek/zustand-auth-registry zustand axios react
 import axios from 'axios';
 import { createAuthRegistry, useAuth } from '@jasperoosthoek/zustand-auth-registry';
 
-// 1. Define your user type
+// 1. Define your data type
 type User = {
   id: number;
   email: string;
@@ -45,21 +45,21 @@ export const authStore = getAuthStore('main', {
   axios: api,
   loginUrl: '/auth/login',
   logoutUrl: '/auth/logout',
-  getUserUrl: '/users/me',
-  extractUser: 'user', // Extract user from response.data.user
+  dataUrl: '/users/me',
+  extractData: 'user', // Extract data from response.data.user
 });
 
 // 5. Use in components
 function LoginForm() {
   const { login } = useAuth(authStore);
-  const { user, isAuthenticated } = authStore((s) => s);
+  const { data, isAuthenticated } = authStore((s) => s);
 
   const handleLogin = async () => {
     await login({ username: 'user@example.com', password: 'password' });
   };
 
   if (isAuthenticated) {
-    return <div>Welcome {user?.name}!</div>;
+    return <div>Welcome {data?.name}!</div>;
   }
 
   return <button onClick={handleLogin}>Login</button>;
@@ -119,24 +119,24 @@ const authStore = getAuthStore('main', {
 
 ## API Reference
 
-### `AuthConfig<U>`
+### `AuthConfig<D>`
 
 ```typescript
-type AuthConfig<U> = {
+type AuthConfig<D> = {
   axios: AxiosInstance;
 
   // Endpoints
   loginUrl: string;
   logoutUrl?: string;
   refreshUrl?: string;
-  getUserUrl?: string;
+  dataUrl?: string;
   authCheckUrl?: string; // For cookie auth
 
   // Token extraction from login response
   extractTokens?: (data: any) => TokenData;
 
-  // User extraction (function or string key)
-  extractUser?: ((data: any) => U | null) | string;
+  // Data extraction (function or string key)
+  extractData?: ((data: any) => D | null) | string;
 
   // Auth header format (default: "Bearer {token}")
   formatAuthHeader?: (token: string, tokenType?: string) => string;
@@ -161,13 +161,13 @@ type AuthConfig<U> = {
     storage?: Storage;      // Default: localStorage
     tokenKey?: string;
     refreshTokenKey?: string;
-    userKey?: string;
+    dataKey?: string;
     expiryKey?: string;
   };
 
   // Callbacks
   onError?: (error: any) => void;
-  onLogin?: (user: U) => void;
+  onLogin?: (data: D) => void;
   onLogout?: () => void;
 };
 ```
@@ -186,31 +186,31 @@ type TokenData = {
 ### `useAuth(store)`
 
 ```typescript
-const { login, logout, getCurrentUser, refreshTokens, checkAuth } = useAuth(authStore);
+const { login, logout, fetchData, refresh, checkAuth } = useAuth(authStore);
 ```
 
 - `login(credentials, callback?)` - Login with credentials
-- `logout()` - Logout and clear tokens
-- `getCurrentUser()` - Fetch current user
-- `refreshTokens()` - Refresh access token
+- `logout()` - Logout and clear state
+- `fetchData()` - Fetch data from `dataUrl`
+- `refresh()` - Refresh access token
 - `checkAuth()` - Check cookie authentication status
 
 ### Auth Store State
 
 ```typescript
-const { user, tokens, isAuthenticated, setBearerToken, setTokens } = authStore((s) => s);
+const { data, tokens, isAuthenticated, setBearerToken, setTokens } = authStore((s) => s);
 ```
 
 **State:**
-- `user: U | null` - Current user
+- `data: D | null` - Stored auth data
 - `tokens: TokenData | null` - Token data (access token, refresh token, etc.)
-- `isAuthenticated: boolean` - Authentication status
+- `isAuthenticated: boolean | null` - Authentication status (`null` = not yet checked, cookie mode only)
 
 **Methods:**
 - `setBearerToken(token)` - Convenience method for simple Bearer token auth
 - `setTokens(tokenData)` - Set full token data (access, refresh, expiry)
-- `setUser(user)` - Set user
-- `unsetUser()` - Clear user and tokens
+- `setData(data)` - Set auth data
+- `reset()` - Clear data, tokens, and authentication state
 
 ## Related Projects
 

@@ -26,7 +26,7 @@ describe('createAuthRegistry', () => {
         axios: mockAxios,
         loginUrl: '/auth/login',
         logoutUrl: '/auth/logout',
-        getUserUrl: '/auth/me',
+        dataUrl: '/auth/me',
       };
 
       const store = getAuthStore('main', config);
@@ -36,7 +36,7 @@ describe('createAuthRegistry', () => {
       expect(store.config.axios).toBe(mockAxios);
       expect(store.config.loginUrl).toBe('/auth/login');
       expect(store.config.logoutUrl).toBe('/auth/logout');
-      expect(store.config.getUserUrl).toBe('/auth/me');
+      expect(store.config.dataUrl).toBe('/auth/me');
       expect(typeof store.config.extractTokens).toBe('function');
     });
 
@@ -80,7 +80,7 @@ describe('createAuthRegistry', () => {
       const store = getAuthStore('main', testConfigs.basic);
 
       const state = store.getState();
-      expect(state.user).toBeNull();
+      expect(state.data).toBeNull();
       expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
@@ -89,11 +89,11 @@ describe('createAuthRegistry', () => {
       const getAuthStore = createAuthRegistry<TestModels>();
       const store = getAuthStore('main', testConfigs.basic);
 
-      const { setTokens, setUser } = store.getState();
+      const { setTokens, setData } = store.getState();
 
       expect(typeof setTokens).toBe('function');
-      expect(typeof setUser).toBe('function');
-      expect(typeof store.getState().unsetUser).toBe('function');
+      expect(typeof setData).toBe('function');
+      expect(typeof store.getState().reset).toBe('function');
     });
 
     it('should create store with config attached', () => {
@@ -120,7 +120,7 @@ describe('createAuthRegistry', () => {
       expect(adminStore).toBeDefined();
     });
 
-    it('should support multiple user types in same registry', () => {
+    it('should support multiple data types in same registry', () => {
       interface MultiModel {
         user: TestUser;
         admin: TestUser & { permissions: string[] };
@@ -133,8 +133,8 @@ describe('createAuthRegistry', () => {
       const adminStore = getAuthStore('admin', config);
 
       expect(userStore).not.toBe(adminStore);
-      expect(typeof userStore.getState().setUser).toBe('function');
-      expect(typeof adminStore.getState().setUser).toBe('function');
+      expect(typeof userStore.getState().setData).toBe('function');
+      expect(typeof adminStore.getState().setData).toBe('function');
     });
   });
 
@@ -153,7 +153,7 @@ describe('createAuthRegistry', () => {
       expect(store.config.persistence.enabled).toBe(false);
       // But default keys are still set for when persistence is enabled
       expect(store.config.persistence.tokenKey).toBe('token');
-      expect(store.config.persistence.userKey).toBe('user');
+      expect(store.config.persistence.dataKey).toBe('data');
     });
 
     it('should apply default auth header format', () => {
@@ -186,16 +186,16 @@ describe('createAuthRegistry', () => {
 
     it('should maintain store state independently', () => {
       const getAuthStore = createAuthRegistry<TestModels>();
-      
+
       const mainStore = getAuthStore('main', testConfigs.basic);
       const adminStore = getAuthStore('admin', testConfigs.basic);
 
-      // Set user in main store
-      mainStore.getState().setUser({ id: 1, email: 'main@test.com', name: 'Main User' });
+      // Set data in main store
+      mainStore.getState().setData({ id: 1, email: 'main@test.com', name: 'Main User' });
 
       // Admin store should remain empty
-      expect(mainStore.getState().user).not.toBeNull();
-      expect(adminStore.getState().user).toBeNull();
+      expect(mainStore.getState().data).not.toBeNull();
+      expect(adminStore.getState().data).toBeNull();
     });
   });
 });

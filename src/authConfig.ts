@@ -8,22 +8,22 @@ export type TokenData = {
   tokenType: string;
 };
 
-export type AuthConfig<U> = {
+export type AuthConfig<D> = {
   axios: AxiosInstance;
 
   // Endpoints
   loginUrl: string;
   logoutUrl?: string;
   refreshUrl?: string;
-  getUserUrl?: string;
+  dataUrl?: string;
   authCheckUrl?: string;  // For cookie auth verification
 
   // Token extraction from login response
   extractTokens?: (data: any) => TokenData;
 
-  // User extraction from responses (login, checkAuth)
+  // Data extraction from responses (login, checkAuth)
   // Can be a function or a string key (e.g., "user" extracts data.user)
-  extractUser?: ((data: any) => U | null) | string;
+  extractData?: ((data: any) => D | null) | string;
 
   // Auth header format (default: "Bearer {token}")
   formatAuthHeader?: (token: string, tokenType?: string) => string;
@@ -51,29 +51,29 @@ export type AuthConfig<U> = {
     storage?: Storage;
     tokenKey?: string;
     refreshTokenKey?: string;
-    userKey?: string;
+    dataKey?: string;
     expiryKey?: string;
   };
 
   // Callbacks
   onError?: (error: any) => void;
-  onLogin?: (user: U) => void;
+  onLogin?: (data: D) => void;
   onLogout?: () => void;
 };
 
-export type ValidatedAuthConfig<U> = {
+export type ValidatedAuthConfig<D> = {
   axios: AxiosInstance;
 
   // Endpoints
   loginUrl: string;
   logoutUrl?: string;
   refreshUrl?: string;
-  getUserUrl?: string;
+  dataUrl?: string;
   authCheckUrl?: string;
 
   // Extraction functions
   extractTokens: (data: any) => TokenData;
-  extractUser?: (data: any) => U | null;
+  extractData?: (data: any) => D | null;
 
   // Auth header format
   formatAuthHeader: (token: string, tokenType?: string) => string;
@@ -98,17 +98,17 @@ export type ValidatedAuthConfig<U> = {
     storage: Storage;
     tokenKey: string;
     refreshTokenKey: string;
-    userKey: string;
+    dataKey: string;
     expiryKey: string;
   };
 
   // Callbacks
   onError?: (error: any) => void;
-  onLogin?: (user: U) => void;
+  onLogin?: (data: D) => void;
   onLogout?: () => void;
 };
 
-export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfig<U> => {
+export const validateAuthConfig = <D>(config: AuthConfig<D>): ValidatedAuthConfig<D> => {
   if (!config.axios) {
     throw new Error('AuthConfig: axios instance is required');
   }
@@ -136,7 +136,7 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
       (typeof window !== 'undefined' && window.localStorage ? window.localStorage : {} as Storage),
     tokenKey: config.persistence?.tokenKey ?? 'token',
     refreshTokenKey: config.persistence?.refreshTokenKey ?? 'refresh_token',
-    userKey: config.persistence?.userKey ?? 'user',
+    dataKey: config.persistence?.dataKey ?? 'data',
     expiryKey: config.persistence?.expiryKey ?? 'expires_at',
   };
 
@@ -145,10 +145,10 @@ export const validateAuthConfig = <U>(config: AuthConfig<U>): ValidatedAuthConfi
     loginUrl: config.loginUrl,
     logoutUrl: config.logoutUrl,
     refreshUrl: config.refreshUrl,
-    getUserUrl: config.getUserUrl,
+    dataUrl: config.dataUrl,
     authCheckUrl: config.authCheckUrl,
     extractTokens: config.extractTokens ?? defaultExtractTokens,
-    extractUser: normalizeExtractUser(config.extractUser),
+    extractData: normalizeExtractData(config.extractData),
     formatAuthHeader: config.formatAuthHeader ??
       ((token: string, tokenType: string = 'Bearer') => `${tokenType} ${token}`),
     autoRefresh: config.autoRefresh ?? true,
@@ -185,14 +185,14 @@ function defaultExtractTokens(data: any): TokenData {
   throw new Error('No token found in response. Provide extractTokens or ensure response contains access_token/token field.');
 }
 
-// Normalize extractUser: string becomes key accessor, function passed through
-function normalizeExtractUser<U>(
-  extractUser?: ((data: any) => U | null) | string
-): ((data: any) => U | null) | undefined {
-  if (typeof extractUser === 'string') {
-    return (data: any) => data[extractUser] ?? null;
+// Normalize extractData: string becomes key accessor, function passed through
+function normalizeExtractData<D>(
+  extractData?: ((data: any) => D | null) | string
+): ((data: any) => D | null) | undefined {
+  if (typeof extractData === 'string') {
+    return (data: any) => data[extractData] ?? null;
   }
-  return extractUser;
+  return extractData;
 }
 
 // Create a cookie-based CSRF token getter (web only)

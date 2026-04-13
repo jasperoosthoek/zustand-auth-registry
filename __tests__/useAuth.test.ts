@@ -33,19 +33,19 @@ describe('useAuth', () => {
       expect(result.current).toHaveProperty('logout');
       expect(result.current).toHaveProperty('refresh');
       expect(result.current).toHaveProperty('checkAuth');
-      expect(result.current).toHaveProperty('getCurrentUser');
+      expect(result.current).toHaveProperty('fetchData');
       expect(typeof result.current.login).toBe('function');
       expect(typeof result.current.logout).toBe('function');
       expect(typeof result.current.refresh).toBe('function');
       expect(typeof result.current.checkAuth).toBe('function');
-      expect(typeof result.current.getCurrentUser).toBe('function');
+      expect(typeof result.current.fetchData).toBe('function');
     });
   });
 
   describe('login functionality', () => {
     it('should login successfully and update state', async () => {
       mockAxiosInstance.post.mockResolvedValue(mockResponses.loginSuccess);
-      mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
+      mockAxiosInstance.get.mockResolvedValue(mockResponses.dataSuccess);
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
@@ -72,9 +72,9 @@ describe('useAuth', () => {
       expect(extractAuthHeader(mockAxiosInstance)).toBe('Bearer mock-jwt-token-12345');
     });
 
-    it('should fetch current user after login when getUserUrl is provided', async () => {
+    it('should fetch data after login when dataUrl is provided', async () => {
       mockAxiosInstance.post.mockResolvedValue(mockResponses.loginSuccess);
-      mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
+      mockAxiosInstance.get.mockResolvedValue(mockResponses.dataSuccess);
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
@@ -90,14 +90,14 @@ describe('useAuth', () => {
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/auth/me');
 
       const state = store.getState();
-      expect(state.user).toEqual(mockUser);
+      expect(state.data).toEqual(mockUser);
     });
 
-    it('should not fetch user when getUserUrl is not provided', async () => {
+    it('should not fetch data when dataUrl is not provided', async () => {
       mockAxiosInstance.post.mockResolvedValue(mockResponses.loginSuccess);
 
       const store = getAuthStore('main', {
-        ...testConfigs.withoutGetUser,
+        ...testConfigs.withoutDataUrl,
         axios: mockAxiosInstance
       });
 
@@ -110,10 +110,10 @@ describe('useAuth', () => {
       expect(mockAxiosInstance.get).not.toHaveBeenCalled();
     });
 
-    it('should call onLogin callback with user data', async () => {
+    it('should call onLogin callback with data', async () => {
       const onLogin = jest.fn();
       mockAxiosInstance.post.mockResolvedValue(mockResponses.loginSuccess);
-      mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
+      mockAxiosInstance.get.mockResolvedValue(mockResponses.dataSuccess);
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
@@ -121,8 +121,8 @@ describe('useAuth', () => {
         onLogin
       });
 
-      // Set user in store first (simulating getCurrentUser success)
-      store.getState().setUser(mockUser);
+      // Set data in store first (simulating fetchData success)
+      store.getState().setData(mockUser);
 
       const { result } = renderHook(() => useAuth(store));
 
@@ -136,7 +136,7 @@ describe('useAuth', () => {
     it('should call login callback when provided', async () => {
       const callback = jest.fn();
       mockAxiosInstance.post.mockResolvedValue(mockResponses.loginSuccess);
-      mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
+      mockAxiosInstance.get.mockResolvedValue(mockResponses.dataSuccess);
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
@@ -190,7 +190,7 @@ describe('useAuth', () => {
 
       // Set initial authenticated state
       store.getState().setTokens({ accessToken: 'token', tokenType: 'Bearer' });
-      store.getState().setUser(mockUser);
+      store.getState().setData(mockUser);
 
       const { result } = renderHook(() => useAuth(store));
 
@@ -201,7 +201,7 @@ describe('useAuth', () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith('/auth/logout', {}, expect.objectContaining({ headers: expect.any(Object) }));
 
       const state = store.getState();
-      expect(state.user).toBeNull();
+      expect(state.data).toBeNull();
       expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
       expect(extractAuthHeader(mockAxiosInstance)).toBeUndefined();
@@ -239,7 +239,7 @@ describe('useAuth', () => {
 
       // Set initial authenticated state
       store.getState().setTokens({ accessToken: 'token', tokenType: 'Bearer' });
-      store.getState().setUser(mockUser);
+      store.getState().setData(mockUser);
 
       const { result } = renderHook(() => useAuth(store));
 
@@ -250,15 +250,15 @@ describe('useAuth', () => {
       expect(onError).toHaveBeenCalled();
 
       const state = store.getState();
-      expect(state.user).toBeNull();
+      expect(state.data).toBeNull();
       expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
   });
 
-  describe('getCurrentUser functionality', () => {
-    it('should fetch current user successfully', async () => {
-      mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
+  describe('fetchData functionality', () => {
+    it('should fetch data successfully', async () => {
+      mockAxiosInstance.get.mockResolvedValue(mockResponses.dataSuccess);
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
@@ -268,32 +268,32 @@ describe('useAuth', () => {
       const { result } = renderHook(() => useAuth(store));
 
       await act(async () => {
-        await result.current.getCurrentUser();
+        await result.current.fetchData();
       });
 
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/auth/me');
-      expect(store.getState().user).toEqual(mockUser);
+      expect(store.getState().data).toEqual(mockUser);
     });
 
-    it('should not make request when getUserUrl is not configured', async () => {
+    it('should not make request when dataUrl is not configured', async () => {
       const store = getAuthStore('main', {
-        ...testConfigs.withoutGetUser,
+        ...testConfigs.withoutDataUrl,
         axios: mockAxiosInstance
       });
 
       const { result } = renderHook(() => useAuth(store));
 
       await act(async () => {
-        await result.current.getCurrentUser();
+        await result.current.fetchData();
       });
 
       expect(mockAxiosInstance.get).not.toHaveBeenCalled();
     });
 
-    it('should handle getCurrentUser errors', async () => {
+    it('should handle fetchData errors', async () => {
       const onError = jest.fn();
-      const userError = createAxiosError('Unauthorized', 401);
-      mockAxiosInstance.get.mockRejectedValue(userError);
+      const dataError = createAxiosError('Unauthorized', 401);
+      mockAxiosInstance.get.mockRejectedValue(dataError);
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
@@ -308,7 +308,7 @@ describe('useAuth', () => {
 
       await act(async () => {
         try {
-          await result.current.getCurrentUser();
+          await result.current.fetchData();
         } catch (error) {
           // Error is thrown
         }
@@ -323,7 +323,7 @@ describe('useAuth', () => {
   describe('axios header management', () => {
     it('should set Bearer authorization header by default', async () => {
       mockAxiosInstance.post.mockResolvedValue(mockResponses.loginSuccess);
-      mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
+      mockAxiosInstance.get.mockResolvedValue(mockResponses.dataSuccess);
 
       const store = getAuthStore('main', {
         ...testConfigs.basic,
@@ -341,7 +341,7 @@ describe('useAuth', () => {
 
     it('should use custom auth header format', async () => {
       mockAxiosInstance.post.mockResolvedValue(mockResponses.loginSuccess);
-      mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
+      mockAxiosInstance.get.mockResolvedValue(mockResponses.dataSuccess);
 
       const store = getAuthStore('main', {
         ...testConfigs.withTokenFormat,
@@ -383,7 +383,7 @@ describe('useAuth', () => {
       const mockStorage = window.localStorage as jest.Mocked<Storage>;
       mockStorage.getItem.mockImplementation((key: string) => {
         if (key === 'token') return 'existing-token';
-        if (key === 'user') return JSON.stringify(mockUser);
+        if (key === 'data') return JSON.stringify(mockUser);
         return null;
       });
 
@@ -398,8 +398,8 @@ describe('useAuth', () => {
       expect(extractAuthHeader(mockAxiosInstance)).toBe('Bearer existing-token');
     });
 
-    it('should fetch current user when token exists but user is missing', async () => {
-      mockAxiosInstance.get.mockResolvedValue(mockResponses.userSuccess);
+    it('should fetch data when token exists but data is missing', async () => {
+      mockAxiosInstance.get.mockResolvedValue(mockResponses.dataSuccess);
 
       const mockStorage = window.localStorage as jest.Mocked<Storage>;
       mockStorage.getItem.mockImplementation((key: string) => {
@@ -519,13 +519,13 @@ describe('useAuth', () => {
         refreshUrl: '/auth/refresh'
       });
 
-      // Set initial state with user and tokens
+      // Set initial state with data and tokens
       store.getState().setTokens({
         accessToken: 'old-token',
         refreshToken: 'old-refresh',
         tokenType: 'Bearer'
       });
-      store.getState().setUser(mockUser);
+      store.getState().setData(mockUser);
 
       const { result } = renderHook(() => useAuth(store));
 
@@ -537,7 +537,7 @@ describe('useAuth', () => {
       expect(refreshResult!).toBe(false);
 
       const state = store.getState();
-      expect(state.user).toBeNull();
+      expect(state.data).toBeNull();
       expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
       expect(mockAxiosInstance.defaults.headers.common['Authorization']).toBeUndefined();
@@ -631,14 +631,14 @@ describe('useAuth', () => {
         tokenType: 'Bearer',
         expiresAt: expiredTime
       });
-      store.getState().setUser(mockUser);
+      store.getState().setData(mockUser);
 
       await act(async () => {
         renderHook(() => useAuth(store));
       });
 
       const state = store.getState();
-      expect(state.user).toBeNull();
+      expect(state.data).toBeNull();
       expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
@@ -755,7 +755,7 @@ describe('useAuth', () => {
         const store = getAuthStore('main', {
           ...testConfigs.basic,
           axios: mockAxiosInstance,
-          extractUser: 'user',
+          extractData: 'user',
           cookieAuth: {
             enabled: true,
             csrf: {
@@ -775,7 +775,7 @@ describe('useAuth', () => {
         expect(checkResult).toBe(true);
         expect(store.getState().isAuthenticated).toBe(true);
         expect(store.getState().tokens).toBeNull();  // Cookie mode: no client-side tokens
-        expect(store.getState().user).toEqual({ id: 1, email: 'test@example.com', name: 'Test User' });
+        expect(store.getState().data).toEqual({ id: 1, email: 'test@example.com', name: 'Test User' });
       });
 
       it('should include CSRF token in headers when enabled', async () => {
@@ -821,7 +821,7 @@ describe('useAuth', () => {
         });
 
         const { result } = renderHook(() => useAuth(getAuthStore('main', {
-          ...testConfigs.withoutGetUser,
+          ...testConfigs.withoutDataUrl,
           axios: mockAxiosInstance,
           cookieAuth: {
             enabled: true,
@@ -866,7 +866,7 @@ describe('useAuth', () => {
 
       it('should return false when cookie auth is disabled', async () => {
         const store = getAuthStore('main', {
-          ...testConfigs.withoutGetUser,
+          ...testConfigs.withoutDataUrl,
           axios: mockAxiosInstance,
           authCheckUrl: '/auth/check'
           // No cookieAuth
@@ -885,7 +885,7 @@ describe('useAuth', () => {
 
       it('should return false when authCheckUrl is not provided', async () => {
         const store = getAuthStore('main', {
-          ...testConfigs.withoutGetUser,
+          ...testConfigs.withoutDataUrl,
           axios: mockAxiosInstance,
           cookieAuth: {
             enabled: true,

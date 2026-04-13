@@ -4,8 +4,8 @@ import { AuthStore } from './authStore';
 // Promise deduplication: prevents multiple concurrent checkAuth calls per store
 const pendingCheckAuth = new WeakMap<AuthStore<any>, Promise<boolean>>();
 
-export function useAuth<U>(store: AuthStore<U>) {
-  const { setTokens, setAuthenticated, setUser, unsetUser, tokens, user, isAuthenticated, isTokenExpired } = store();
+export function useAuth<D>(store: AuthStore<D>) {
+  const { setTokens, setAuthenticated, setData, reset, tokens, data, isAuthenticated, isTokenExpired } = store();
   const config = store.config;
 
   // Set axios Authorization header (token mode only)
@@ -48,12 +48,12 @@ export function useAuth<U>(store: AuthStore<U>) {
       setAxiosAuth(newTokens.accessToken, newTokens.tokenType);
       return true;
     } catch (error) {
-      unsetUser();
+      reset();
       setAxiosAuth();
       config.onError?.(error);
       return false;
     }
-  }, [tokens, config, setTokens, unsetUser, setAxiosAuth]);
+  }, [tokens, config, setTokens, reset, setAxiosAuth]);
 
   // Check authentication (cookie mode) - with promise deduplication
   const checkAuth = useCallback(async (): Promise<boolean> => {
@@ -76,20 +76,20 @@ export function useAuth<U>(store: AuthStore<U>) {
         if (response.data.authenticated) {
           setAuthenticated(true);
 
-          const extractedUser = config.extractUser?.(response.data);
-          if (extractedUser) {
-            setUser(extractedUser);
-          } else if (config.getUserUrl) {
-            await getCurrentUser();
+          const extractedData = config.extractData?.(response.data);
+          if (extractedData) {
+            setData(extractedData);
+          } else if (config.dataUrl) {
+            await fetchData();
           }
 
           return true;
         }
 
-        setAuthenticated(false);
+        reset();
         return false;
       } catch (error) {
-        setAuthenticated(false);
+        reset();
         config.onError?.(error);
         return false;
       } finally {
@@ -100,22 +100,22 @@ export function useAuth<U>(store: AuthStore<U>) {
     const promise = doCheck();
     pendingCheckAuth.set(store, promise);
     return promise;
-  }, [store, config, setAuthenticated, setUser]);
+  }, [store, config, setAuthenticated, setData]);
 
-  // Get current user
-  const getCurrentUser = useCallback(async () => {
-    if (!config.getUserUrl) return;
+  // Fetch data from dataUrl
+  const fetchData = useCallback(async () => {
+    if (!config.dataUrl) return;
 
     try {
-      const res = await config.axios.get<U>(config.getUserUrl);
-      setUser(res.data);
+      const res = await config.axios.get<D>(config.dataUrl);
+      setData(res.data);
     } catch (error) {
-      unsetUser();
+      reset();
       setAxiosAuth();
       config.onError?.(error);
       throw error;
     }
-  }, [config, setUser, unsetUser, setAxiosAuth]);
+  }, [config, setData, reset, setAxiosAuth]);
 
   // Login
   const login = async (credentials: Record<string, string>, callback?: () => void) => {
@@ -133,20 +133,20 @@ export function useAuth<U>(store: AuthStore<U>) {
         setAxiosAuth(newTokens.accessToken, newTokens.tokenType);
       }
 
-      // Extract user from response
-      const extractedUser = config.extractUser?.(res.data);
-      if (extractedUser) {
-        setUser(extractedUser);
-        config.onLogin?.(extractedUser);
-      } else if (config.getUserUrl) {
-        await getCurrentUser();
-        const currentUser = store.getState().user;
-        if (currentUser) config.onLogin?.(currentUser);
+      // Extract data from response
+      const extractedData = config.extractData?.(res.data);
+      if (extractedData) {
+        setData(extractedData);
+        config.onLogin?.(extractedData);
+      } else if (config.dataUrl) {
+        await fetchData();
+        const currentData = store.getState().data;
+        if (currentData) config.onLogin?.(currentData);
       }
 
       callback?.();
     } catch (error) {
-      unsetUser();
+      reset();
       setAxiosAuth();
       config.onError?.(error);
       throw error;
@@ -163,7 +163,7 @@ export function useAuth<U>(store: AuthStore<U>) {
     } catch (error) {
       config.onError?.(error);
     } finally {
-      unsetUser();
+      reset();
       setAxiosAuth();
       config.onLogout?.();
     }
@@ -188,7 +188,7 @@ export function useAuth<U>(store: AuthStore<U>) {
         if (tokens.refreshToken && config.autoRefresh) {
           refresh();
         } else {
-          unsetUser();
+          reset();
         }
         return;
       }
@@ -202,14 +202,14 @@ export function useAuth<U>(store: AuthStore<U>) {
         return () => clearTimeout(timer);
       }
 
-      // Fetch user if missing
-      if (!user && config.getUserUrl) {
-        getCurrentUser().catch(() => {});
+      // Fetch data if missing
+      if (!data && config.dataUrl) {
+        fetchData().catch(() => {});
       }
     }
-  }, [tokens, user, isAuthenticated, config, isTokenExpired, refresh, checkAuth, getCurrentUser, setAxiosAuth, unsetUser]);
+  }, [tokens, data, isAuthenticated, config, isTokenExpired, refresh, checkAuth, fetchData, setAxiosAuth, reset]);
 
-  return { login, logout, refresh, checkAuth, getCurrentUser };
+  return { login, logout, refresh, checkAuth, fetchData };
 }
 
 // Helper: Get CSRF headers if enabled (uses getToken from config)

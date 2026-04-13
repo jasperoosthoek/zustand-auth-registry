@@ -1,5 +1,12 @@
 # Changelog
 
+##### Version 0.1.0
+- **BREAKING**: Generic `D` is now data-agnostic — store any shape, not just a user
+- Rename `state.user` → `state.data`, `setUser` → `setData`, `unsetUser` → `reset`
+- Rename `extractUser` → `extractData`, `getUserUrl` → `dataUrl`, `userKey` → `dataKey`
+- Rename `getCurrentUser()` → `fetchData()`
+- Default persistence key changed from `'user'` to `'data'`
+
 ##### Version 0.0.3
 - Automatic `CSRF` token injection via `axios` interceptor for `POST`/`PUT`/`PATCH`/`DELETE` requests
 

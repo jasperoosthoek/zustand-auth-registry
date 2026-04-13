@@ -21,7 +21,7 @@ describe('createAuthStore', () => {
       const store = createAuthStore(config);
       const state = store.getState();
 
-      expect(state.user).toBeNull();
+      expect(state.data).toBeNull();
       expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
@@ -30,7 +30,7 @@ describe('createAuthStore', () => {
       const mockStorage = window.localStorage as jest.Mocked<Storage>;
       mockStorage.getItem.mockImplementation((key: string) => {
         if (key === 'token') return 'stored-token';
-        if (key === 'user') return JSON.stringify({ id: 1, email: 'test@example.com', name: 'Test User' });
+        if (key === 'data') return JSON.stringify({ id: 1, email: 'test@example.com', name: 'Test User' });
         return null;
       });
 
@@ -45,15 +45,15 @@ describe('createAuthStore', () => {
       const state = store.getState();
 
       expect(state.tokens?.accessToken).toBe('stored-token');
-      expect(state.user).toEqual({ id: 1, email: 'test@example.com', name: 'Test User' });
+      expect(state.data).toEqual({ id: 1, email: 'test@example.com', name: 'Test User' });
       expect(state.isAuthenticated).toBe(true);
     });
 
-    it('should handle corrupted user data in storage', () => {
+    it('should handle corrupted data in storage', () => {
       const mockStorage = window.localStorage as jest.Mocked<Storage>;
       mockStorage.getItem.mockImplementation((key: string) => {
         if (key === 'token') return 'stored-token';
-        if (key === 'user') return 'invalid-json';
+        if (key === 'data') return 'invalid-json';
         return null;
       });
 
@@ -68,7 +68,7 @@ describe('createAuthStore', () => {
       const state = store.getState();
 
       expect(state.tokens?.accessToken).toBe('stored-token');
-      expect(state.user).toBeNull();
+      expect(state.data).toBeNull();
       expect(state.isAuthenticated).toBe(true);
     });
 
@@ -76,7 +76,7 @@ describe('createAuthStore', () => {
       const mockStorage = window.sessionStorage as jest.Mocked<Storage>;
       mockStorage.getItem.mockImplementation((key: string) => {
         if (key === 'custom_token') return 'stored-token';
-        if (key === 'custom_user') return JSON.stringify({ id: 1, email: 'test@example.com', name: 'Test User' });
+        if (key === 'custom_data') return JSON.stringify({ id: 1, email: 'test@example.com', name: 'Test User' });
         return null;
       });
 
@@ -89,7 +89,7 @@ describe('createAuthStore', () => {
       const state = store.getState();
 
       expect(state.tokens?.accessToken).toBe('stored-token');
-      expect(state.user).toEqual({ id: 1, email: 'test@example.com', name: 'Test User' });
+      expect(state.data).toEqual({ id: 1, email: 'test@example.com', name: 'Test User' });
     });
   });
 
@@ -176,8 +176,8 @@ describe('createAuthStore', () => {
     });
   });
 
-  describe('setUser', () => {
-    it('should update user and storage', () => {
+  describe('setData', () => {
+    it('should update data and storage', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
         loginUrl: '/login',
@@ -186,17 +186,17 @@ describe('createAuthStore', () => {
       });
 
       const store = createAuthStore(config);
-      const { setUser } = store.getState();
+      const { setData } = store.getState();
 
-      const user: TestUser = { id: 1, email: 'test@example.com', name: 'Test User' };
-      setUser(user);
+      const data: TestUser = { id: 1, email: 'test@example.com', name: 'Test User' };
+      setData(data);
 
       const state = store.getState();
-      expect(state.user).toEqual(user);
-      expect(window.localStorage.setItem).toHaveBeenCalledWith('user', JSON.stringify(user));
+      expect(state.data).toEqual(data);
+      expect(window.localStorage.setItem).toHaveBeenCalledWith('data', JSON.stringify(data));
     });
 
-    it('should handle storage errors for user data', () => {
+    it('should handle storage errors for data', () => {
       const onError = jest.fn();
       const config = validateAuthConfig({
         axios: mockAxios,
@@ -208,22 +208,22 @@ describe('createAuthStore', () => {
 
       const mockStorage = window.localStorage as jest.Mocked<Storage>;
       mockStorage.setItem.mockImplementation((key: string) => {
-        if (key === 'user') throw createStorageQuotaError();
+        if (key === 'data') throw createStorageQuotaError();
       });
 
       const store = createAuthStore(config);
-      const { setUser } = store.getState();
+      const { setData } = store.getState();
 
-      const user: TestUser = { id: 1, email: 'test@example.com', name: 'Test User' };
-      setUser(user);
+      const data: TestUser = { id: 1, email: 'test@example.com', name: 'Test User' };
+      setData(data);
 
-      expect(store.getState().user).toEqual(user);
+      expect(store.getState().data).toEqual(data);
       expect(onError).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
-  describe('unsetUser', () => {
-    it('should clear user and tokens from state and storage', () => {
+  describe('reset', () => {
+    it('should clear data and tokens from state and storage', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
         loginUrl: '/login',
@@ -232,21 +232,21 @@ describe('createAuthStore', () => {
       });
 
       const store = createAuthStore(config);
-      const { setTokens, setUser, unsetUser } = store.getState();
+      const { setTokens, setData, reset } = store.getState();
 
       // Set initial data
       setTokens({ accessToken: 'token', tokenType: 'Bearer' });
-      setUser({ id: 1, email: 'test@example.com', name: 'Test User' });
+      setData({ id: 1, email: 'test@example.com', name: 'Test User' });
 
       // Clear data
-      unsetUser();
+      reset();
 
       const state = store.getState();
-      expect(state.user).toBeNull();
+      expect(state.data).toBeNull();
       expect(state.tokens).toBeNull();
       expect(state.isAuthenticated).toBe(false);
       expect(window.localStorage.removeItem).toHaveBeenCalledWith('token');
-      expect(window.localStorage.removeItem).toHaveBeenCalledWith('user');
+      expect(window.localStorage.removeItem).toHaveBeenCalledWith('data');
     });
 
     it('should handle storage removal errors', () => {
@@ -265,12 +265,12 @@ describe('createAuthStore', () => {
       });
 
       const store = createAuthStore(config);
-      const { unsetUser } = store.getState();
+      const { reset } = store.getState();
 
-      unsetUser();
+      reset();
 
       const state = store.getState();
-      expect(state.user).toBeNull();
+      expect(state.data).toBeNull();
       expect(state.isAuthenticated).toBe(false);
       expect(onError).toHaveBeenCalledWith(expect.any(Error));
     });
@@ -339,13 +339,13 @@ describe('createAuthStore', () => {
       });
 
       const store = createAuthStore(config);
-      const { setTokens, setUser, unsetUser } = store.getState();
+      const { setTokens, setData, reset } = store.getState();
 
       // Should not throw errors
       expect(() => {
         setTokens({ accessToken: 'token', tokenType: 'Bearer' });
-        setUser({ id: 1, email: 'test@example.com', name: 'Test User' });
-        unsetUser();
+        setData({ id: 1, email: 'test@example.com', name: 'Test User' });
+        reset();
       }).not.toThrow();
     });
   });
@@ -365,7 +365,7 @@ describe('createAuthStore', () => {
       expect(store.getState().isAuthenticated).toBe(true);
     });
 
-    it('should set isAuthenticated to false after unsetUser', () => {
+    it('should set isAuthenticated to false after reset', () => {
       const config = validateAuthConfig({
         axios: mockAxios,
         loginUrl: '/login',
@@ -373,12 +373,12 @@ describe('createAuthStore', () => {
       });
 
       const store = createAuthStore(config);
-      const { setTokens, unsetUser } = store.getState();
+      const { setTokens, reset } = store.getState();
 
       setTokens({ accessToken: 'token', tokenType: 'Bearer' });
       expect(store.getState().isAuthenticated).toBe(true);
 
-      unsetUser();
+      reset();
       expect(store.getState().isAuthenticated).toBe(false);
     });
   });

@@ -1,28 +1,28 @@
 import { create, StoreApi, UseBoundStore } from 'zustand';
 import { ValidatedAuthConfig, TokenData } from './authConfig';
 
-export type AuthState<U> = {
+export type AuthState<D> = {
   isAuthenticated: boolean | null;  // null = not checked yet (cookie mode)
-  user: U | null;
+  data: D | null;
   tokens: TokenData | null;  // null in cookie mode or when logged out
 
   // Methods
   setTokens: (tokens: TokenData) => void;
   setBearerToken: (token: string) => void;  // Convenience for simple Bearer token auth
   setAuthenticated: (authenticated: boolean) => void;  // For cookie mode
-  setUser: (user: U) => void;
-  unsetUser: () => void;
+  setData: (data: D) => void;
+  reset: () => void;
   isTokenExpired: () => boolean;
 };
 
-export type AuthStore<U> = UseBoundStore<StoreApi<AuthState<U>>> & {
-  config: ValidatedAuthConfig<U>;
+export type AuthStore<D> = UseBoundStore<StoreApi<AuthState<D>>> & {
+  config: ValidatedAuthConfig<D>;
 };
 
 // Methods that modify state (require CSRF protection)
 const CSRF_METHODS = ['post', 'put', 'patch', 'delete'];
 
-const setupCsrfInterceptor = <U>(config: ValidatedAuthConfig<U>): number | null => {
+const setupCsrfInterceptor = <D>(config: ValidatedAuthConfig<D>): number | null => {
   if (!config.cookieAuth?.csrf.enabled) {
     return null;
   }
@@ -41,7 +41,7 @@ const setupCsrfInterceptor = <U>(config: ValidatedAuthConfig<U>): number | null 
   });
 };
 
-export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U> => {
+export const createAuthStore = <D>(config: ValidatedAuthConfig<D>): AuthStore<D> => {
   const { persistence, cookieAuth } = config;
 
   // Set up CSRF interceptor if enabled
@@ -74,18 +74,18 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
     }
   };
 
-  const getStoredUser = (): U | null => {
+  const getStoredData = (): D | null => {
     if (!persistence.enabled) return null;
     try {
-      const userString = persistence.storage.getItem(persistence.userKey);
-      return userString ? (JSON.parse(userString) as U) : null;
+      const dataString = persistence.storage.getItem(persistence.dataKey);
+      return dataString ? (JSON.parse(dataString) as D) : null;
     } catch {
       return null;
     }
   };
 
   const initialTokens = getStoredTokens();
-  const initialUser = getStoredUser();
+  const initialData = getStoredData();
 
   // Cookie mode: null (unknown until checkAuth)
   // Token mode: true/false based on token presence
@@ -93,9 +93,9 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
     ? null
     : !!initialTokens?.accessToken;
 
-  const store = create<AuthState<U>>((set, get) => ({
+  const store = create<AuthState<D>>((set, get) => ({
     tokens: initialTokens,
-    user: initialUser,
+    data: initialData,
     isAuthenticated: initialIsAuthenticated,
 
     setTokens: (tokens: TokenData) => {
@@ -136,26 +136,26 @@ export const createAuthStore = <U>(config: ValidatedAuthConfig<U>): AuthStore<U>
       set({ isAuthenticated: authenticated });
     },
 
-    setUser: (user: U) => {
-      set({ user });
+    setData: (data: D) => {
+      set({ data });
 
       if (persistence.enabled) {
         try {
-          persistence.storage.setItem(persistence.userKey, JSON.stringify(user));
+          persistence.storage.setItem(persistence.dataKey, JSON.stringify(data));
         } catch (error) {
           config.onError?.(error);
         }
       }
     },
 
-    unsetUser: () => {
-      set({ user: null, tokens: null, isAuthenticated: false });
+    reset: () => {
+      set({ data: null, tokens: null, isAuthenticated: false });
 
       if (persistence.enabled) {
         try {
           persistence.storage.removeItem(persistence.tokenKey);
           persistence.storage.removeItem(persistence.refreshTokenKey);
-          persistence.storage.removeItem(persistence.userKey);
+          persistence.storage.removeItem(persistence.dataKey);
           persistence.storage.removeItem(persistence.expiryKey);
         } catch (error) {
           config.onError?.(error);
